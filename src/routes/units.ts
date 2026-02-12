@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import { createUnit, listUnits, updateUnitStatus, updateUnitPriority, updatePriorityOrder, addDefectToUnit, updateDefectGrade, getDefectStats, getTodayUnits, setScmDecision, getStatusStats } from '../controllers/UnitController';
+import { validateOverridePermission } from '../middleware/roleGuard';
+import { requireAuth } from '../middleware/auth';
+
+const router = Router();
+
+router.get('/', listUnits);
+router.get('/stats/defects', getDefectStats);
+router.get('/stats/by-status', getStatusStats);
+router.get('/today', requireAuth, getTodayUnits);
+router.post('/', createUnit);
+router.put('/:id/status', updateUnitStatus);
+router.put('/:id/priority', updateUnitPriority);
+router.put('/:id/scm-decision', setScmDecision);
+router.post('/:id/defects', validateOverridePermission, addDefectToUnit);
+router.put('/:id/defects/:defectId', updateDefectGrade);
+router.put('/priority/order', updatePriorityOrder);
+
+export default router;

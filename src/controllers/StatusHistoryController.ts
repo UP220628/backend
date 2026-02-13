@@ -84,25 +84,33 @@ export const exportLogsToExcel = async (req: Request, res: Response) => {
     const excelData = units.map((unit: any) => {
       // Formatear notas para Excel
       const notesText = unit.notes.length > 0 
-        ? unit.notes.map((n: any) => 
-            `[${n.status}] ${new Date(n.timestamp).toLocaleString('es-MX')}: ${n.note}`
-          ).join('\n') 
+        ? unit.notes.map((n: any) => {
+            const date = new Date(n.timestamp);
+            return `[${n.status}] ${date.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}: ${n.note}`;
+          }).join('\n') 
         : '';
+
+      // Función helper para formatear fechas sin conversión de zona horaria
+      const formatDate = (dateString: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+      };
 
       return {
         'VIN': unit.vin,
         'Mercado': unit.market,
         'Carril': unit.lane,
         'Registrado por': unit.registeredByName,
-        'Reportado': unit.states.REPORTED ? new Date(unit.states.REPORTED).toLocaleString('es-MX') : '',
-        'Nivelación': unit.states.SENT ? new Date(unit.states.SENT).toLocaleString('es-MX') : '',
-        'Entregada': unit.states.DELIVERED ? new Date(unit.states.DELIVERED).toLocaleString('es-MX') : '',
-        'Recibido': unit.states.RECEIVED ? new Date(unit.states.RECEIVED).toLocaleString('es-MX') : '',
-        'Aceptado': unit.states.ACCEPTED ? new Date(unit.states.ACCEPTED).toLocaleString('es-MX') : '',
-        'En Reparación': unit.states.IN_REPAIR ? new Date(unit.states.IN_REPAIR).toLocaleString('es-MX') : '',
-        'Reparado': unit.states.REPAIRED ? new Date(unit.states.REPAIRED).toLocaleString('es-MX') : '',
-        'Liberado Body': unit.states.RELEASED ? new Date(unit.states.RELEASED).toLocaleString('es-MX') : '',
-        'Liberado WWS': unit.states.WWS_RELEASED ? new Date(unit.states.WWS_RELEASED).toLocaleString('es-MX') : '',
+        'Reportado': formatDate(unit.states.REPORTED),
+        'Nivelación': formatDate(unit.states.SENT),
+        'Entregada': formatDate(unit.states.DELIVERED),
+        'Recibido': formatDate(unit.states.RECEIVED),
+        'Aceptado': formatDate(unit.states.ACCEPTED),
+        'En Reparación': formatDate(unit.states.IN_REPAIR),
+        'Reparado': formatDate(unit.states.REPAIRED),
+        'Liberado Body': formatDate(unit.states.RELEASED),
+        'Liberado WWS': formatDate(unit.states.WWS_RELEASED),
         'Notas': notesText,
       };
     });

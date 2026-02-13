@@ -15,8 +15,7 @@ export const getWeeklyUnitsByProvider = async (req: Request, res: Response) => {
 					p.name as provider_name,
 					COUNT(u.id)::int as count
 				FROM "Unit" u
-				LEFT JOIN "User" usr ON usr.id = u."registeredById"
-				LEFT JOIN "Provider" p ON p.id = usr."providerId"
+				LEFT JOIN "Provider" p ON p.id = u."providerId"
 				WHERE p.name IS NOT NULL
 				GROUP BY (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date, p.name
 			)

@@ -38,9 +38,8 @@ export class UnitRepository {
 
 	async getRegisteredByProviderId(unitId: number): Promise<number | null> {
 		const result = await sql<Array<{ providerId: number | null }>>`
-			SELECT usr."providerId" as "providerId"
+			SELECT u."providerId" as "providerId"
 			FROM "Unit" u
-			LEFT JOIN "User" usr ON usr.id = u."registeredById"
 			WHERE u.id = ${unitId}
 			LIMIT 1
 		`;
@@ -435,7 +434,7 @@ export class UnitRepository {
 				LIMIT 1
 			) last_status ON TRUE
 			WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
-			${providerId ? sql`AND usr."providerId" = ${providerId}` : sql``}
+			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 			ORDER BY u."createdAt" DESC
 		`;
 		

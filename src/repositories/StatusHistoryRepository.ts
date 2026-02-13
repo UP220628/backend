@@ -36,7 +36,7 @@ export class StatusHistoryRepository {
       paramIndex++;
     }
     if (filters.providerId) {
-      where.push(`registeredBy."providerId" = $${paramIndex}`);
+      where.push(`u."providerId" = $${paramIndex}`);
       params.push(filters.providerId);
       paramIndex++;
     }
@@ -70,7 +70,6 @@ export class StatusHistoryRepository {
         SELECT DISTINCT u.id as "unitId"
         FROM "UnitEvent" e
         JOIN "Unit" u ON u.id = e."unitId"
-        JOIN "User" registeredBy ON registeredBy.id = u."registeredById"
         WHERE e."eventType" = 'STATUS_CHANGE'
           AND e."eventData"->>'newStatus' = 'REPORTED'
           ${reportedDateFilter}
@@ -79,7 +78,7 @@ export class StatusHistoryRepository {
       SELECT
         e.id as "historyId", 
         e."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City' as "changedAt",
-        u.id as "unitId", u.vin, u.market, u.lane, u."registeredById",
+        u.id as "unitId", u.vin, u.market, u.lane, u."registeredById", u."providerId",
         e."eventData"->>'previousStatus' as "previousStatus",
         e."eventData"->>'newStatus' as "newStatus",
         e."eventData"->>'note' as "note",

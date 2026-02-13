@@ -228,16 +228,16 @@ export class UnitRepository {
 		});
 	}
 
-	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>): Promise<number> {
+	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>, initialStatus: string = 'REPORTED'): Promise<number> {
 		return await sql.begin(async (trx: any) => {
-			// Obtener el statusId de 'REPORTED'
+			// Obtener el statusId del estado inicial especificado
 			const statusResult = await trx`
-				SELECT id FROM "UnitStatus" WHERE name = 'REPORTED'
+				SELECT id FROM "UnitStatus" WHERE name = ${initialStatus}
 			`;
 			const statusId = (statusResult as Array<{ id: number }>)[0]?.id;
 			
 			if (!statusId) {
-				throw new Error('Status REPORTED no encontrado en la base de datos');
+				throw new Error(`Status ${initialStatus} no encontrado en la base de datos`);
 			}
 			
 			// Insertar la unidad
@@ -255,7 +255,7 @@ export class UnitRepository {
 			// Crear evento inicial
 			const eventData = {
 				previousStatus: null,
-				newStatus: statusName[0]?.name || 'REPORTED',
+				newStatus: statusName[0]?.name || initialStatus,
 				previousStatusId: null,
 				newStatusId: statusId,
 				initialRegistration: true

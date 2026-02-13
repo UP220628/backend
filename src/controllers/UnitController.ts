@@ -44,7 +44,7 @@ export const createUnit = async (req: Request, res: Response) => {
 			finalProviderId = user.providerId;
 		}
 		
-		const unit = await unitService.createUnit({ vin, market, lane, registeredById, providerId: finalProviderId });
+		const unit = await unitService.createUnit({ vin, market, lane, registeredById, providerId: finalProviderId }, user?.roleId);
 		res.status(201).json({ ok: true, data: unit });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

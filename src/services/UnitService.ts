@@ -12,13 +12,18 @@ export class UnitService {
 		return unitRepository.findByStatusName(name, limit, providerId);
 	}
 
-	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>) {
+	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>, registeredByRoleId?: number) {
 		// Check if VIN already exists
 		const existingUnit = await unitRepository.findByVin(payload.vin);
 		if (existingUnit) {
 			throw new Error(`Unit with VIN ${payload.vin} already exists`);
 		}
-		const id = await unitRepository.create(payload);
+		
+		// Si el usuario que registra es WWS (roleId = 1), la unidad inicia en SENT
+		// De lo contrario, inicia en REPORTED (para nivelación)
+		const initialStatus = registeredByRoleId === 1 ? 'SENT' : 'REPORTED';
+		
+		const id = await unitRepository.create(payload, initialStatus);
 		const unit = await unitRepository.findById(id);
 		if (unit) {
 			await notificationService.notifyUnitReported({ id: unit.id, vin: unit.vin });

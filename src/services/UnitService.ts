@@ -12,7 +12,7 @@ export class UnitService {
 		return unitRepository.findByStatusName(name, limit, providerId);
 	}
 
-	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'>) {
+	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>) {
 		// Check if VIN already exists
 		const existingUnit = await unitRepository.findByVin(payload.vin);
 		if (existingUnit) {

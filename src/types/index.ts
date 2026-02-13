@@ -52,6 +52,7 @@ export interface Unit {
   statusId: number;
   isAvailableToday: boolean;
   registeredById: number;
+  providerId?: number;
   estimatedRepairHours?: number;
   estimatedCompletionDate?: Date;
   // Priority fields

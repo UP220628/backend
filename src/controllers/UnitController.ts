@@ -29,11 +29,22 @@ export const getDefectStats = async (req: Request, res: Response) => {
 
 export const createUnit = async (req: Request, res: Response) => {
 	try {
-		const { vin, market, lane, registeredById } = req.body || {};
+		const user = res.locals.user;
+		const { vin, market, lane, registeredById, providerId } = req.body || {};
 		if (!vin || !market || !lane || !registeredById) {
 			return res.status(400).json({ ok: false, error: 'Missing required fields' });
 		}
-		const unit = await unitService.createUnit({ vin, market, lane, registeredById });
+		
+		// Determinar el providerId:
+		// 1. Si viene providerId en el body (WWS reportando), usar ese
+		// 2. Si el usuario es CARRIER (roleId=4) y tiene providerId, usar el del usuario
+		// 3. Si no, dejar null
+		let finalProviderId = providerId;
+		if (!finalProviderId && user?.roleId === 4 && user.providerId) {
+			finalProviderId = user.providerId;
+		}
+		
+		const unit = await unitService.createUnit({ vin, market, lane, registeredById, providerId: finalProviderId });
 		res.status(201).json({ ok: true, data: unit });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

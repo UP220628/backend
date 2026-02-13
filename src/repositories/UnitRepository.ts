@@ -5,7 +5,7 @@ export class UnitRepository {
 	async findAll(limit = 50, providerId?: number): Promise<Array<Unit & { statusName: string }>> {
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -13,8 +13,7 @@ export class UnitRepository {
 				s.name as "statusName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
-			LEFT JOIN "User" usr ON usr.id = u."registeredById"
-		${providerId ? sql`WHERE usr."providerId" = ${providerId}` : sql``}
+		${providerId ? sql`WHERE u."providerId" = ${providerId}` : sql``}
 			ORDER BY u."createdAt" DESC
 			LIMIT ${limit}
 		`;
@@ -24,7 +23,7 @@ export class UnitRepository {
 	async findById(id: number): Promise<(Unit & { statusName: string }) | null> {
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -51,7 +50,7 @@ export class UnitRepository {
 	async findByVin(vin: string): Promise<(Unit & { statusName: string }) | null> {
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -67,7 +66,7 @@ export class UnitRepository {
 	async findByStatusName(name: string, limit = 50, providerId?: number): Promise<Array<Unit & { statusName: string; defects?: any[] }>> {
 		const result = await sql<any[]>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -78,9 +77,8 @@ export class UnitRepository {
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "UnitDefect" d ON d."unitId" = u.id AND d."isActive" = TRUE
 			LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
-			LEFT JOIN "User" usr ON usr.id = u."registeredById"
 		WHERE s.name = ${name}
-			${providerId ? sql`AND usr."providerId" = ${providerId}` : sql``}
+			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 			ORDER BY u."createdAt" DESC
 			LIMIT ${limit}
 		`;
@@ -95,6 +93,7 @@ export class UnitRepository {
 					market: row.market,
 					lane: row.lane,
 					statusId: row.statusId,
+					providerId: row.providerId,
 					statusName: row.statusName,
 					isAvailableToday: row.isAvailableToday,
 					registeredById: row.registeredById,
@@ -230,7 +229,7 @@ export class UnitRepository {
 		});
 	}
 
-	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'>): Promise<number> {
+	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>): Promise<number> {
 		return await sql.begin(async (trx: any) => {
 			// Obtener el statusId de 'REPORTED'
 			const statusResult = await trx`
@@ -244,8 +243,8 @@ export class UnitRepository {
 			
 			// Insertar la unidad
 			const result = await trx`
-				INSERT INTO "Unit" (vin, market, lane, "registeredById", "statusId", "createdAt", "updatedAt")
-				VALUES (${unit.vin}, ${unit.market}, ${unit.lane}, ${unit.registeredById}, ${statusId}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
+				INSERT INTO "Unit" (vin, market, lane, "registeredById", "providerId", "statusId", "createdAt", "updatedAt")
+				VALUES (${unit.vin}, ${unit.market}, ${unit.lane}, ${unit.registeredById}, ${unit.providerId || null}, ${statusId}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
 				RETURNING id
 			`;
 			
@@ -275,7 +274,7 @@ export class UnitRepository {
 	async findByIdWithDefects(id: number): Promise<any | null> {
 		const result = await sql<any[]>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -308,6 +307,7 @@ export class UnitRepository {
 			market: unitData.market,
 			lane: unitData.lane,
 			statusId: unitData.statusId,
+			providerId: unitData.providerId,
 			statusName: unitData.statusName,
 			isAvailableToday: unitData.isAvailableToday,
 			registeredById: unitData.registeredById,
@@ -409,7 +409,7 @@ export class UnitRepository {
 	async getTodayUnits(providerId?: number): Promise<any[]> {
 		const result = await sql<any[]>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u.priority, u."priorityNote", u."priorityRank",

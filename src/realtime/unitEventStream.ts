@@ -3,7 +3,7 @@ import type { Response } from 'express';
 type UnitEventPayload = {
   unitId: number;
   status: string;
-  event: 'UNIT_REPORTED' | 'STATUS_CHANGED' | 'DEFECT_UPDATED' | 'PRIORITY_UPDATED' | 'SCM_DECISION' | 'NOTE_ADDED';
+  event: 'UNIT_REPORTED' | 'STATUS_CHANGED' | 'DEFECT_UPDATED' | 'PRIORITY_UPDATED' | 'SCM_DECISION' | 'NOTE_ADDED' | 'REPAIR_TIME_UPDATED';
   createdAt: string;
 };
 

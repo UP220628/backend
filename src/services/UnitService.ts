@@ -187,8 +187,8 @@ export class UnitService {
 		return unit;
 	}
 
-	async getUnitsInRepair() {
-		return unitRepository.getUnitsInRepair();
+	async getUnitsInRepair(providerId?: number) {
+		return unitRepository.getUnitsInRepair(providerId);
 	}
 }
 

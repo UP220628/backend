@@ -501,7 +501,7 @@ async getStatusStats(): Promise<Record<string, number>> {
 	}
 
 	// Obtener unidades actualmente en reparación con tiempos estimados
-	async getUnitsInRepair(): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
+	async getUnitsInRepair(providerId?: number): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
 		const result = await sql<any[]>`
 			SELECT 
 				u.id, 
@@ -516,6 +516,7 @@ async getStatusStats(): Promise<Record<string, number>> {
 			LEFT JOIN "Provider" p ON p.id = u."providerId"
 			WHERE s.name = 'IN_REPAIR' 
 			AND u."estimatedRepairHours" IS NOT NULL
+			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
 		`;
 		return result;

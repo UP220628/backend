@@ -195,7 +195,10 @@ export const updateEstimatedRepairTime = async (req: Request, res: Response) => 
 
 export const getUnitsInRepair = async (req: Request, res: Response) => {
 	try {
-		const units = await unitService.getUnitsInRepair();
+		const user = res.locals.user;
+		// CARRIER solo puede ver sus propias unidades, otros roles ven todas
+		const providerId = user?.roleId === 4 && user.providerId ? user.providerId : undefined;
+		const units = await unitService.getUnitsInRepair(providerId);
 		res.json({ ok: true, data: units });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

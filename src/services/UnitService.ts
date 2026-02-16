@@ -78,8 +78,8 @@ export class UnitService {
 		return unit;
 	}
 
-	async updateUnitPriority(id: number, priority: 'ALTA'|'MEDIA'|'BAJA'|null, note: string|null, rank: number|null, assignedById: number) {
-		await unitRepository.updatePriority(id, priority, note, rank, assignedById);
+	async updateUnitPriority(id: number, note: string|null, rank: number|null, assignedById: number) {
+		await unitRepository.updatePriority(id, note, rank, assignedById);
 		const unit = await unitRepository.findById(id);
 		if (unit) {
 			broadcastUnitEvent({
@@ -92,11 +92,11 @@ export class UnitService {
 		return unit;
 	}
 
-	async reorderUnitPriority(priority: 'ALTA'|'MEDIA'|'BAJA', unitIds: number[], assignedById: number) {
-		await unitRepository.reorderPriority(priority, unitIds, assignedById);
-		// Return the updated list for that priority ordered by rank
+	async reorderUnitPriority(unitIds: number[], assignedById: number) {
+		await unitRepository.reorderPriority(unitIds, assignedById);
+		// Return the updated list ordered by rank
 		const list = await unitRepository.findByStatusName('RECEIVED');
-		const filtered = list.filter((u: any) => u.priority === priority).sort((a: any, b: any) => (a.priorityRank ?? 9999) - (b.priorityRank ?? 9999));
+		const filtered = list.filter((u: any) => u.priorityRank != null).sort((a: any, b: any) => (a.priorityRank ?? 9999) - (b.priorityRank ?? 9999));
 		
 		// Broadcast priority update events for all affected units
 		for (const unit of filtered) {
@@ -171,6 +171,24 @@ export class UnitService {
 
 	async getStatusStats(): Promise<Record<string, number>> {
 		return unitRepository.getStatusStats();
+	}
+
+	async updateEstimatedRepairTime(id: number, estimatedRepairHours: number, updatedById: number) {
+		await unitRepository.updateEstimatedRepairTime(id, estimatedRepairHours, updatedById);
+		const unit = await unitRepository.findById(id);
+		if (unit) {
+			broadcastUnitEvent({
+				unitId: unit.id,
+				status: unit.statusName,
+				event: 'REPAIR_TIME_UPDATED',
+				createdAt: new Date().toISOString(),
+			});
+		}
+		return unit;
+	}
+
+	async getUnitsInRepair() {
+		return unitRepository.getUnitsInRepair();
 	}
 }
 

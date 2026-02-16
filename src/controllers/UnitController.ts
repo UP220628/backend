@@ -68,17 +68,12 @@ export const updateUnitStatus = async (req: Request, res: Response) => {
 export const updateUnitPriority = async (req: Request, res: Response) => {
 	try {
 		const id = Number(req.params.id);
-		const { priority, note, rank, assignedById } = req.body || {};
+		const { note, rank, assignedById } = req.body || {};
 		if (!id || !assignedById) {
 			return res.status(400).json({ ok: false, error: 'Missing id or assignedById' });
 		}
-		const valid = priority === 'ALTA' || priority === 'MEDIA' || priority === 'BAJA' || priority === null || priority === undefined;
-		if (!valid) {
-			return res.status(400).json({ ok: false, error: 'Invalid priority. Use ALTA|MEDIA|BAJA or null.' });
-		}
 		const unit = await unitService.updateUnitPriority(
 			id,
-			priority ?? null,
 			note ?? null,
 			typeof rank === 'number' ? rank : null,
 			Number(assignedById)
@@ -91,14 +86,11 @@ export const updateUnitPriority = async (req: Request, res: Response) => {
 
 export const updatePriorityOrder = async (req: Request, res: Response) => {
 	try {
-		const { priority, unitIds, assignedById } = req.body || {};
-		if (!priority || !Array.isArray(unitIds) || unitIds.length === 0 || !assignedById) {
-			return res.status(400).json({ ok: false, error: 'Missing priority, unitIds or assignedById' });
+		const { unitIds, assignedById } = req.body || {};
+		if (!Array.isArray(unitIds) || unitIds.length === 0 || !assignedById) {
+			return res.status(400).json({ ok: false, error: 'Missing unitIds or assignedById' });
 		}
-		if (!['ALTA','MEDIA','BAJA'].includes(priority)) {
-			return res.status(400).json({ ok: false, error: 'Invalid priority' });
-		}
-		const data = await unitService.reorderUnitPriority(priority, unitIds.map(Number), Number(assignedById));
+		const data = await unitService.reorderUnitPriority(unitIds.map(Number), Number(assignedById));
 		res.json({ ok: true, data });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
@@ -182,6 +174,29 @@ export const getStatusStats = async (req: Request, res: Response) => {
 	try {
 		const stats = await unitService.getStatusStats();
 		res.json({ ok: true, data: stats });
+	} catch (err: any) {
+		res.status(500).json({ ok: false, error: err.message });
+	}
+};
+
+export const updateEstimatedRepairTime = async (req: Request, res: Response) => {
+	try {
+		const id = Number(req.params.id);
+		const { estimatedRepairHours, updatedById } = req.body || {};
+		if (!id || !estimatedRepairHours || !updatedById) {
+			return res.status(400).json({ ok: false, error: 'Missing id, estimatedRepairHours or updatedById' });
+		}
+		const unit = await unitService.updateEstimatedRepairTime(id, Number(estimatedRepairHours), Number(updatedById));
+		res.json({ ok: true, data: unit });
+	} catch (err: any) {
+		res.status(500).json({ ok: false, error: err.message });
+	}
+};
+
+export const getUnitsInRepair = async (req: Request, res: Response) => {
+	try {
+		const units = await unitService.getUnitsInRepair();
+		res.json({ ok: true, data: units });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
 	}

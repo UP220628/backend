@@ -8,7 +8,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
+				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 				u."createdAt", u."updatedAt",
 				s.name as "statusName"
 			FROM "Unit" u
@@ -26,7 +26,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
+				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 				u."createdAt", u."updatedAt",
 				s.name as "statusName"
 			FROM "Unit" u
@@ -52,7 +52,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
+				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 				u."createdAt", u."updatedAt",
 				s.name as "statusName"
 			FROM "Unit" u
@@ -68,7 +68,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
+				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 				u."createdAt", u."updatedAt",
 				s.name as "statusName",
 				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
@@ -124,19 +124,18 @@ export class UnitRepository {
 		return Array.from(unitsMap.values());
 	}
 
-	async updatePriority(unitId: number, priority: string | null, note: string | null, rank: number | null, assignedById: number): Promise<void> {
-		// If priority is set but rank is not, auto-assign rank
+	async updatePriority(unitId: number, note: string | null, rank: number | null, assignedById: number): Promise<void> {
+		// If rank is not provided, auto-assign the next available rank
 		let finalRank = rank;
-		if (priority && !rank) {
+		if (!rank) {
 			const maxRankResult = await sql<[{ max_rank: number }]>`
-				SELECT COALESCE(MAX("priorityRank"), 0) as max_rank FROM "Unit" WHERE priority = ${priority}
+				SELECT COALESCE(MAX("priorityRank"), 0) as max_rank FROM "Unit" WHERE "priorityRank" IS NOT NULL
 			`;
 			finalRank = (maxRankResult[0]?.max_rank || 0) + 1;
 		}
 
 		await sql`
 			UPDATE "Unit" SET
-				priority = ${priority},
 				"priorityNote" = ${note},
 				"priorityRank" = ${finalRank},
 				"priorityAssignedById" = ${assignedById},
@@ -146,7 +145,7 @@ export class UnitRepository {
 		`;
 	}
 
-	async reorderPriority(priority: 'ALTA'|'MEDIA'|'BAJA', unitIds: number[], assignedById: number): Promise<void> {
+	async reorderPriority(unitIds: number[], assignedById: number): Promise<void> {
 		await sql.begin(async (trx: any) => {
 			for (let i = 0; i < unitIds.length; i++) {
 				await trx`
@@ -182,14 +181,30 @@ export class UnitRepository {
 			
 			if (estimatedRepairHours !== undefined) {
 				updates.estimatedRepairHours = estimatedRepairHours;
-			}
 			
-			if (isAvailableToday !== undefined) {
-				updates.isAvailableToday = isAvailableToday;
-			}
+			// Si se está iniciando reparación, calcular fecha estimada de finalización
+			if (newStatusName === 'IN_REPAIR') {
+				// Obtener unidades en reparación para calcular la cola
+				const unitsInRepair = await trx<any[]>`
+					SELECT 
+						u."estimatedCompletionDate"
+					FROM "Unit" u
+					JOIN "UnitStatus" s ON s.id = u."statusId"
+					WHERE s.name = 'IN_REPAIR' 
+					AND u."estimatedRepairHours" IS NOT NULL
+					AND u.id != ${unitId}
+					ORDER BY u."estimatedCompletionDate" DESC NULLS LAST
+					LIMIT 1
+				`;
 
-			// Si cambia a UNAVAILABLE, limpiar priorityRank
-			if (newStatusName === 'UNAVAILABLE') {
+				let startDate = new Date();
+				if (unitsInRepair.length > 0 && unitsInRepair[0].estimatedCompletionDate) {
+					startDate = new Date(unitsInRepair[0].estimatedCompletionDate);
+				}
+
+				const completionDate = new Date(startDate.getTime() + estimatedRepairHours * 60 * 60 * 1000);
+				updates.estimatedCompletionDate = completionDate;
+			}
 				updates.priorityRank = null;
 			}
 
@@ -276,7 +291,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
+				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 				u."createdAt", u."updatedAt",
 				s.name as "statusName",
 				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
@@ -312,7 +327,7 @@ export class UnitRepository {
 			registeredById: unitData.registeredById,
 			estimatedRepairHours: unitData.estimatedRepairHours,
 			estimatedCompletionDate: unitData.estimatedCompletionDate,
-			priority: unitData.priority,
+
 			priorityNote: unitData.priorityNote,
 			priorityRank: unitData.priorityRank,
 			priorityAssignedById: unitData.priorityAssignedById,
@@ -411,7 +426,7 @@ export class UnitRepository {
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
-				u.priority, u."priorityNote", u."priorityRank",
+				u."priorityNote", u."priorityRank",
 				u."scmDecision", u."scmDecisionNote", 
 				'' || TO_CHAR(u."scmDecisionAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "scmDecisionAt", 
 				u."scmDecisionById",
@@ -483,6 +498,112 @@ async getStatusStats(): Promise<Record<string, number>> {
 		stats[row.statusName] = row.count;
 	}
 	return stats;
+	}
+
+	// Obtener unidades actualmente en reparación con tiempos estimados
+	async getUnitsInRepair(): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date }>> {
+		const result = await sql<any[]>`
+			SELECT 
+				u.id, 
+				u.vin, 
+				u."estimatedRepairHours", 
+				u."estimatedCompletionDate",
+				u."updatedAt"
+			FROM "Unit" u
+			JOIN "UnitStatus" s ON s.id = u."statusId"
+			WHERE s.name = 'IN_REPAIR' 
+			AND u."estimatedRepairHours" IS NOT NULL
+			ORDER BY u."estimatedCompletionDate" ASC NULLS LAST, u."updatedAt" ASC
+		`;
+		return result;
+	}
+
+	// Calcular fecha estimada de finalización basándose en unidades en reparación
+	async calculateEstimatedCompletionDate(newEstimatedHours: number): Promise<Date> {
+		const unitsInRepair = await this.getUnitsInRepair();
+		
+		let latestCompletionTime: Date | null = null;
+
+		// Encontrar la última hora de finalización estimada de las unidades actuales
+		for (const unit of unitsInRepair) {
+			if (unit.estimatedCompletionDate) {
+				if (!latestCompletionTime || new Date(unit.estimatedCompletionDate) > latestCompletionTime) {
+					latestCompletionTime = new Date(unit.estimatedCompletionDate);
+				}
+			}
+		}
+
+		// Si no hay unidades en reparación o ninguna tiene fecha estimada, empezar desde ahora
+		const startDate = latestCompletionTime || new Date();
+		
+		// Agregar las horas estimadas para la nueva unidad
+		const completionDate = new Date(startDate.getTime() + newEstimatedHours * 60 * 60 * 1000);
+		
+		return completionDate;
+	}
+
+	// Actualizar tiempo estimado de una unidad (puede estar en reparación o no)
+	async updateEstimatedRepairTime(unitId: number, estimatedRepairHours: number, updatedById: number): Promise<void> {
+		// Calcular nueva fecha de finalización
+		const unit = await this.findById(unitId);
+		if (!unit) throw new Error('Unit not found');
+
+		let estimatedCompletionDate: Date;
+
+		if (unit.statusName === 'IN_REPAIR') {
+			// Si ya está en reparación, calcular considerando las otras unidades
+			// pero excluyendo esta unidad del cálculo
+			const unitsInRepair = await sql<any[]>`
+				SELECT 
+					u.id, 
+					u."estimatedCompletionDate"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				WHERE s.name = 'IN_REPAIR' 
+				AND u."estimatedRepairHours" IS NOT NULL
+				AND u.id != ${unitId}
+				ORDER BY u."estimatedCompletionDate" ASC NULLS LAST
+			`;
+
+			let latestCompletionTime: Date | null = null;
+			for (const u of unitsInRepair) {
+				if (u.estimatedCompletionDate) {
+					const date = new Date(u.estimatedCompletionDate);
+					if (!latestCompletionTime || date > latestCompletionTime) {
+						latestCompletionTime = date;
+					}
+				}
+			}
+
+			// Si esta unidad ya tiene una fecha de inicio implícita (su updatedAt cuando entró a IN_REPAIR),
+			// mantener ese punto de inicio o usar ahora si no hay otras unidades
+			const startDate = latestCompletionTime || unit.updatedAt || new Date();
+			estimatedCompletionDate = new Date(startDate.getTime() + estimatedRepairHours * 60 * 60 * 1000);
+		} else {
+			// Si no está en reparación aún, calcular basándose en todas las unidades actuales
+			estimatedCompletionDate = await this.calculateEstimatedCompletionDate(estimatedRepairHours);
+		}
+
+		await sql`
+			UPDATE "Unit"
+			SET 
+				"estimatedRepairHours" = ${estimatedRepairHours},
+				"estimatedCompletionDate" = ${estimatedCompletionDate},
+				"updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+			WHERE id = ${unitId}
+		`;
+
+		// Crear evento
+		const eventData = {
+			estimatedRepairHours,
+			estimatedCompletionDate: estimatedCompletionDate.toISOString(),
+			updatedById
+		};
+
+		await sql`
+			INSERT INTO "UnitEvent" ("unitId", "eventType", "eventData", "performedById", "createdAt")
+			VALUES (${unitId}, 'REPAIR_TIME_UPDATED', ${sql.json(eventData)}, ${updatedById}, NOW() AT TIME ZONE 'America/Mexico_City')
+		`;
 	}
 }
 

@@ -56,7 +56,6 @@ export interface Unit {
   estimatedRepairHours?: number;
   estimatedCompletionDate?: Date;
   // Priority fields
-  priority?: 'ALTA' | 'MEDIA' | 'BAJA';
   priorityNote?: string;
   priorityRank?: number;
   priorityAssignedById?: number;

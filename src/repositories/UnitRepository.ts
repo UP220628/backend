@@ -501,19 +501,22 @@ async getStatusStats(): Promise<Record<string, number>> {
 	}
 
 	// Obtener unidades actualmente en reparación con tiempos estimados
-	async getUnitsInRepair(): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date }>> {
+	async getUnitsInRepair(): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
 		const result = await sql<any[]>`
 			SELECT 
 				u.id, 
 				u.vin, 
 				u."estimatedRepairHours", 
 				u."estimatedCompletionDate",
-				u."updatedAt"
+				u."updatedAt",
+				u."providerId",
+				p.name as "providerName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
+			LEFT JOIN "Provider" p ON p.id = u."providerId"
 			WHERE s.name = 'IN_REPAIR' 
 			AND u."estimatedRepairHours" IS NOT NULL
-			ORDER BY u."estimatedCompletionDate" ASC NULLS LAST, u."updatedAt" ASC
+			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
 		`;
 		return result;
 	}

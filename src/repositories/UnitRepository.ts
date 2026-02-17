@@ -181,67 +181,70 @@ export class UnitRepository {
 			
 			if (estimatedRepairHours !== undefined) {
 				updates.estimatedRepairHours = estimatedRepairHours;
-			
-			// Si se está iniciando reparación, calcular fecha estimada de finalización
-			if (newStatusName === 'IN_REPAIR') {
-				// Obtener unidades en reparación para calcular la cola
-				const unitsInRepair = await trx<any[]>`
-					SELECT 
-						u."estimatedCompletionDate"
-					FROM "Unit" u
-					JOIN "UnitStatus" s ON s.id = u."statusId"
-					WHERE s.name = 'IN_REPAIR' 
-					AND u."estimatedRepairHours" IS NOT NULL
-					AND u.id != ${unitId}
-					ORDER BY u."estimatedCompletionDate" DESC NULLS LAST
-					LIMIT 1
-				`;
-
-				let startDate = new Date();
-				if (unitsInRepair.length > 0 && unitsInRepair[0].estimatedCompletionDate) {
-					startDate = new Date(unitsInRepair[0].estimatedCompletionDate);
-				}
-
-				const completionDate = new Date(startDate.getTime() + estimatedRepairHours * 60 * 60 * 1000);
-				updates.estimatedCompletionDate = completionDate;
-			}
-				updates.priorityRank = null;
-			}
-
-			// Si cambia a IN_REPAIR o RELEASED, limpiar priorityRank ya que sale de la cola RECEIVED
-			if (newStatusName === 'IN_REPAIR' || newStatusName === 'RELEASED' || newStatusName === 'WWS_RELEASED' || newStatusName === 'ACCEPTED') {
-				updates.priorityRank = null;
-			}
-
-			await trx`
-				UPDATE "Unit" 
-				SET ${sql(updates)}
-				WHERE id = ${unitId}
+		}
+		
+		// Si se está iniciando reparación, calcular fecha estimada de finalización
+		if (newStatusName === 'IN_REPAIR' && estimatedRepairHours !== undefined) {
+			// Obtener unidades en reparación para calcular la cola
+			const unitsInRepair = await trx<any[]>`
+				SELECT 
+					u."estimatedCompletionDate"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				WHERE s.name = 'IN_REPAIR' 
+				AND u."estimatedRepairHours" IS NOT NULL
+				AND u.id != ${unitId}
+				ORDER BY u."estimatedCompletionDate" DESC NULLS LAST
+				LIMIT 1
 			`;
 
-			// Obtener nombres de estados para el evento
-			const prevStatus = previousStatusId ? await trx`SELECT name FROM "UnitStatus" WHERE id = ${previousStatusId}` : null;
-			const newStatus = await trx`SELECT name FROM "UnitStatus" WHERE id = ${newStatusId}`;
+			let startDate = new Date();
+			if (unitsInRepair.length > 0 && unitsInRepair[0].estimatedCompletionDate) {
+				startDate = new Date(unitsInRepair[0].estimatedCompletionDate);
+			}
 
-			// Crear evento con toda la información del cambio
-			const eventData: any = {
-				previousStatus: prevStatus?.[0]?.name || null,
-				newStatus: newStatus[0]?.name,
-				previousStatusId: previousStatusId,
-				newStatusId: newStatusId
-			};
+			const completionDate = new Date(startDate.getTime() + estimatedRepairHours * 60 * 60 * 1000);
+			updates.estimatedCompletionDate = completionDate;
+		}
 
-			// Agregar datos adicionales si existen
-			if (updates.estimatedRepairHours) eventData.estimatedRepairHours = updates.estimatedRepairHours;
-			if (updates.isAvailableToday !== undefined) eventData.isAvailableToday = updates.isAvailableToday;
-			if (note) eventData.note = note;
+		// Si cambia a IN_REPAIR o RELEASED, limpiar priorityRank ya que sale de la cola RECEIVED
+		if (newStatusName === 'IN_REPAIR' || newStatusName === 'RELEASED' || newStatusName === 'WWS_RELEASED' || newStatusName === 'ACCEPTED') {
+			updates.priorityRank = null;
+		}
 
-			await trx`
-				INSERT INTO "UnitEvent" ("unitId", "eventType", "eventData", "performedById", "createdAt")
-				VALUES (${unitId}, 'STATUS_CHANGE', ${sql.json(eventData)}, ${changedById}, NOW() AT TIME ZONE 'America/Mexico_City')
-			`;
-		});
-	}
+		if (isAvailableToday !== undefined) {
+			updates.isAvailableToday = isAvailableToday;
+		}
+
+		await trx`
+			UPDATE "Unit" 
+			SET ${sql(updates)}
+			WHERE id = ${unitId}
+		`;
+
+		// Obtener nombres de estados para el evento
+		const prevStatus = previousStatusId ? await trx`SELECT name FROM "UnitStatus" WHERE id = ${previousStatusId}` : null;
+		const newStatus = await trx`SELECT name FROM "UnitStatus" WHERE id = ${newStatusId}`;
+
+		// Crear evento con toda la información del cambio
+		const eventData: any = {
+			previousStatus: prevStatus?.[0]?.name || null,
+			newStatus: newStatus[0]?.name,
+			previousStatusId: previousStatusId,
+			newStatusId: newStatusId
+		};
+
+		// Agregar datos adicionales si existen
+		if (updates.estimatedRepairHours) eventData.estimatedRepairHours = updates.estimatedRepairHours;
+		if (updates.isAvailableToday !== undefined) eventData.isAvailableToday = updates.isAvailableToday;
+		if (note) eventData.note = note;
+
+		await trx`
+			INSERT INTO "UnitEvent" ("unitId", "eventType", "eventData", "performedById", "createdAt")
+			VALUES (${unitId}, 'STATUS_CHANGE', ${sql.json(eventData)}, ${changedById}, NOW() AT TIME ZONE 'America/Mexico_City')
+		`;
+	});
+}
 
 	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>, initialStatus: string = 'REPORTED'): Promise<number> {
 		return await sql.begin(async (trx: any) => {

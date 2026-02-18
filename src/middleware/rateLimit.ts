@@ -1,29 +1,76 @@
 import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 
-// Rate limiting para login: máximo 5 intentos en 15 minutos por IP
-export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 intentos
-  message: 'Demasiados intentos de login fallidos. Intenta de nuevo en 15 minutos.',
-  standardHeaders: true, // Retorna limite en headers RateLimit-*
-  legacyHeaders: false, // Desactiva X-RateLimit-* headers
-  skip: (req: any) => {
-    // En desarrollo, skip rate limiting si hay header especial
-    return process.env.NODE_ENV === 'development' && req.headers['x-skip-rate-limit'] === 'true';
-  },
-  keyGenerator: (req: any) => {
-    // Usar IP del cliente (soporta proxies con X-Forwarded-For)
-    return req.ip || req.connection.remoteAddress || 'unknown';
-  },
-  handler: (req: any, res: any) => {
-    res.status(429).json({
+// Contador en memoria para intentos fallidos por IP
+const failedAttempts = new Map<string, { count: number; resetTime: number }>();
+const FAILED_ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutos
+const MAX_FAILED_ATTEMPTS = 5;
+
+// Limpiar intentos expirados cada minuto
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of failedAttempts.entries()) {
+    if (now > data.resetTime) {
+      failedAttempts.delete(ip);
+    }
+  }
+}, 60 * 1000);
+
+export function checkFailedLogins(req: Request, res: Response, next: NextFunction) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  // En desarrollo, permitir
+  if (process.env.NODE_ENV === 'development' && req.headers['x-skip-rate-limit'] === 'true') {
+    return next();
+  }
+
+  const attempts = failedAttempts.get(ip);
+  const now = Date.now();
+
+  if (attempts && now < attempts.resetTime && attempts.count >= MAX_FAILED_ATTEMPTS) {
+    const timeLeft = Math.ceil((attempts.resetTime - now) / 1000 / 60);
+    return res.status(429).json({
       ok: false,
-      error: 'Demasiados intentos de login. Intenta más tarde.',
-      retryAfter: req.rateLimit.resetTime,
+      error: `Demasiados intentos de login fallidos. Intenta de nuevo en ${timeLeft} minutos.`,
     });
-  },
-});
+  }
+
+  next();
+}
+
+export function recordFailedLogin(req: Request, res: Response, next: NextFunction) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  // Store original json para interceptar la respuesta
+  const originalJson = res.json.bind(res);
+
+  res.json = function(data: any) {
+    // Si fue login exitoso (ok: true), no contar como intento fallido
+    if (data && data.ok === true) {
+      // Limpiar intentos fallidos previos de esta IP
+      failedAttempts.delete(ip);
+      return originalJson(data);
+    }
+
+    // Si fue login fallido (ok: false o sin ok), contar intento
+    const attempts = failedAttempts.get(ip);
+    
+    if (!attempts) {
+      failedAttempts.set(ip, {
+        count: 1,
+        resetTime: now + FAILED_ATTEMPT_WINDOW,
+      });
+    } else {
+      attempts.count += 1;
+      attempts.resetTime = now + FAILED_ATTEMPT_WINDOW; // Resetear ventana
+    }
+
+    return originalJson(data);
+  };
+
+  next();
+}
 
 // Rate limiting general para API: máximo 100 requests por minuto
 export const apiLimiter = rateLimit({

@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/AuthController';
 import { authMiddleware, requireAuth } from '../middleware/auth';
-import { loginLimiter } from '../middleware/rateLimit';
+import { checkFailedLogins, recordFailedLogin } from '../middleware/rateLimit';
 
 const router = Router();
 const authController = new AuthController();
 
-// Ruta para login (con rate limiting)
-router.post('/login', loginLimiter, authController.login);
+// Ruta para login (con rate limiting solo para intentos FALLIDOS)
+router.post('/login', checkFailedLogins, recordFailedLogin, authController.login);
 
 // Ruta para refresh token
 router.post('/refresh', authController.refresh);
@@ -21,4 +21,6 @@ router.get('/me', authController.me);
 // Ruta para logout
 router.post('/logout', authMiddleware, requireAuth, authController.logout);
 
+// Ruta para cambiar contraseña (requiere autenticación)
+router.post('/change-password', authMiddleware, requireAuth, authController.changePassword);
 export default router;

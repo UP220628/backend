@@ -13,17 +13,37 @@ export class AuthController {
       const credentials: LoginCredentials = req.body;
 
       if (!credentials.email || !credentials.password) {
-        res.status(400).json({ error: 'Email y contraseña son requeridos' });
+        res.status(400).json({ ok: false, error: 'Email y contraseña son requeridos' });
         return;
       }
 
       const result = await this.authService.login(credentials);
-      res.status(200).json(result);
+      res.status(200).json({ ok: true, data: result });
     } catch (error) {
       if (error instanceof Error && error.message === 'Credenciales inválidas') {
-        res.status(401).json({ error: error.message });
+        res.status(401).json({ ok: false, error: error.message });
       } else {
-        res.status(500).json({ error: 'Error en el servidor', details: error instanceof Error ? error.message : 'Unknown error' });
+        res.status(500).json({ ok: false, error: 'Error en el servidor', details: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    }
+  };
+
+  refresh = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const refreshToken = req.body?.refreshToken || req.headers.authorization?.replace('Bearer ', '');
+
+      if (!refreshToken) {
+        res.status(401).json({ ok: false, error: 'Refresh token no proporcionado' });
+        return;
+      }
+
+      const result = await this.authService.refresh(refreshToken);
+      res.status(200).json({ ok: true, data: result });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(401).json({ ok: false, error: error.message });
+      } else {
+        res.status(500).json({ ok: false, error: 'Error en el servidor' });
       }
     }
   };
@@ -33,14 +53,14 @@ export class AuthController {
       const token = req.headers.authorization?.replace('Bearer ', '');
 
       if (!token) {
-        res.status(401).json({ error: 'Token no proporcionado' });
+        res.status(401).json({ ok: false, error: 'Token no proporcionado' });
         return;
       }
 
       const decoded = await this.authService.verifyToken(token);
-      res.status(200).json({ valid: true, data: decoded });
+      res.status(200).json({ ok: true, valid: true, data: decoded });
     } catch (error) {
-      res.status(401).json({ error: 'Token inválido o expirado', valid: false });
+      res.status(401).json({ ok: false, error: 'Token inválido o expirado', valid: false });
     }
   };
 
@@ -49,44 +69,40 @@ export class AuthController {
       const token = req.headers.authorization?.replace('Bearer ', '');
 
       if (!token) {
-        res.status(401).json({ error: 'Token no proporcionado' });
+        res.status(401).json({ ok: false, error: 'Token no proporcionado' });
         return;
       }
 
       const user = await this.authService.getUserFromToken(token);
 
       if (!user) {
-        res.status(404).json({ error: 'Usuario no encontrado' });
+        res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
         return;
       }
 
       // Remover password de la respuesta
       const { password, ...userWithoutPassword } = user;
-      res.status(200).json(userWithoutPassword);
+      res.status(200).json({ ok: true, data: userWithoutPassword });
     } catch (error) {
-      res.status(401).json({ error: 'Token inválido o expirado' });
+      res.status(401).json({ ok: false, error: 'Token inválido o expirado' });
     }
   };
 
   logout = async (req: Request, res: Response): Promise<void> => {
-    // En un sistema con JWT stateless, el logout se maneja en el cliente
-    // removiendo el token. Aquí solo confirmamos la acción.
-    res.status(200).json({ message: 'Logout exitoso' });
-  };
-
-  changePassword = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = res.locals?.user?.userId as number | undefined;
-      const { currentPassword, newPassword } = req.body || {};
 
       if (!userId) {
         res.status(401).json({ ok: false, error: 'Authentication required' });
         return;
       }
 
-      if (!currentPassword || !newPassword) {
-        res.status(400).json({ ok: false, error: 'Se requiere contraseña actual y nueva' });
-        return;
+      // Revocar todos los refresh tokens del usuario
+      await this.authService.logout(userId);
+      res.status(200).json({ ok: true, message: 'Logout exitoso' });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: 'Error en el servidor' });
+    }
       }
 
       await this.authService.changePassword(userId, currentPassword, newPassword);

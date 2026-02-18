@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
+import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 import { User } from '../types';
+import { env } from '../config/environment';
 
 export interface LoginCredentials {
   email: string;
@@ -17,17 +19,69 @@ export interface AuthResponse {
     providerId?: number;
   };
   token: string;
+  refreshToken: string;
+}
+
+export interface RefreshResponse {
+  token: string;
+  refreshToken: string;
 }
 
 export class AuthService {
   private userRepository: UserRepository;
+  private refreshTokenRepository: RefreshTokenRepository;
   private jwtSecret: string;
   private jwtExpiresIn: string;
+  private refreshTokenExpiresIn: string;
 
   constructor() {
     this.userRepository = new UserRepository();
-    this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    this.refreshTokenRepository = new RefreshTokenRepository();
+    this.jwtSecret = env.jwtSecret;
+    this.jwtExpiresIn = env.jwtExpiresIn;
+    this.refreshTokenExpiresIn = env.refreshTokenExpiresIn;
+    if (!this.jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
+  }
+
+  // Generar tokens
+  private generateAccessToken(user: User): string {
+    return jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        roleId: user.roleId,
+        providerId: user.providerId,
+      },
+      this.jwtSecret,
+      { expiresIn: this.jwtExpiresIn } as jwt.SignOptions
+    );
+  }
+
+  private generateRefreshToken(): string {
+    return jwt.sign(
+      { type: 'refresh' },
+      this.jwtSecret,
+      { expiresIn: this.refreshTokenExpiresIn } as jwt.SignOptions
+    );
+  }
+
+  private parseExpiration(expiresIn: string): Date {
+    const now = new Date();
+    const match = expiresIn.match(/^(\d+)([smhd])$/);
+    if (!match) throw new Error('Invalid expiration format');
+    
+    const [, amount, unit] = match;
+    const num = parseInt(amount);
+    
+    switch (unit) {
+      case 's': now.setSeconds(now.getSeconds() + num); break;
+      case 'm': now.setMinutes(now.getMinutes() + num); break;
+      case 'h': now.setHours(now.getHours() + num); break;
+      case 'd': now.setDate(now.getDate() + num); break;
+    }
+    return now;
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
@@ -47,17 +101,13 @@ export class AuthService {
       throw new Error('Credenciales inválidas');
     }
 
-    // Generar token JWT
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        roleId: user.roleId,
-        providerId: user.providerId,
-      },
-      this.jwtSecret,
-      { expiresIn: this.jwtExpiresIn } as jwt.SignOptions
-    );
+    // Generar tokens
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = this.generateRefreshToken();
+    const expiresAt = this.parseExpiration(this.refreshTokenExpiresIn);
+
+    // Guardar refresh token en BD
+    await this.refreshTokenRepository.create(user.id, refreshToken, expiresAt);
 
     // Retornar datos del usuario sin la contraseña
     return {
@@ -68,8 +118,50 @@ export class AuthService {
         roleId: user.roleId,
         providerId: user.providerId,
       },
-      token,
+      token: accessToken,
+      refreshToken,
     };
+  }
+
+  async refresh(refreshToken: string): Promise<RefreshResponse> {
+    // Validar refresh token en BD
+    const tokenData = await this.refreshTokenRepository.findByToken(refreshToken);
+    
+    if (!tokenData) {
+      throw new Error('Refresh token inválido');
+    }
+
+    if (tokenData.revokedAt) {
+      throw new Error('Refresh token fue revocado');
+    }
+
+    if (new Date(tokenData.expiresAt) < new Date()) {
+      throw new Error('Refresh token expirado');
+    }
+
+    // Obtener usuario y generar nuevo access token
+    const user = await this.userRepository.findById(tokenData.userId);
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    const newAccessToken = this.generateAccessToken(user);
+    const newRefreshToken = this.generateRefreshToken();
+    const newExpiresAt = this.parseExpiration(this.refreshTokenExpiresIn);
+
+    // Revocar token anterior y guardar el nuevo
+    await this.refreshTokenRepository.revoke(refreshToken);
+    await this.refreshTokenRepository.create(user.id, newRefreshToken, newExpiresAt);
+
+    return {
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  async logout(userId: number): Promise<void> {
+    // Revocar todos los refresh tokens del usuario
+    await this.refreshTokenRepository.revokeByUserId(userId);
   }
 
   async verifyToken(token: string): Promise<any> {
@@ -108,5 +200,8 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.userRepository.updatePassword(userId, hashed);
+
+    // Revocar todos los refresh tokens al cambiar contraseña
+    await this.refreshTokenRepository.revokeByUserId(userId);
   }
 }

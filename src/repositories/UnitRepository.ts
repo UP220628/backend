@@ -9,7 +9,7 @@ export class UnitRepository {
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
-				u."createdAt", u."updatedAt",
+				u."createdAt", u."updatedAt", u."vqaComment",
 				s.name as "statusName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
@@ -27,7 +27,7 @@ export class UnitRepository {
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
-				u."createdAt", u."updatedAt",
+				u."createdAt", u."updatedAt", u."vqaComment",
 				s.name as "statusName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
@@ -53,7 +53,7 @@ export class UnitRepository {
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
-				u."createdAt", u."updatedAt",
+				u."createdAt", u."updatedAt", u."vqaComment",
 				s.name as "statusName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
@@ -69,7 +69,7 @@ export class UnitRepository {
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
-				u."createdAt", u."updatedAt",
+				u."createdAt", u."updatedAt", u."vqaComment",
 				s.name as "statusName",
 				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
 			FROM "Unit" u
@@ -160,7 +160,7 @@ export class UnitRepository {
 		});
 	}
 
-	async updateStatus(unitId: number, newStatusName: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string): Promise<void> {
+	async updateStatus(unitId: number, newStatusName: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string, vqaComment?: string): Promise<void> {
 		await sql.begin(async (trx: any) => {
 			const statusResult = await trx`
 				SELECT id FROM "UnitStatus" WHERE name = ${newStatusName}
@@ -214,6 +214,10 @@ export class UnitRepository {
 
 		if (isAvailableToday !== undefined) {
 			updates.isAvailableToday = isAvailableToday;
+		}
+
+		if (vqaComment !== undefined) {
+			updates.vqaComment = vqaComment;
 		}
 
 		await trx`
@@ -295,7 +299,7 @@ export class UnitRepository {
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
-				u."createdAt", u."updatedAt",
+				u."createdAt", u."updatedAt", u."vqaComment",
 				s.name as "statusName",
 				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
 			FROM "Unit" u

@@ -38,8 +38,8 @@ export class UnitService {
 		return { id, ...payload } as any;
 	}
 
-	async updateUnitStatus(id: number, newStatus: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string) {
-		await unitRepository.updateStatus(id, newStatus, changedById, estimatedRepairHours, isAvailableToday, note);
+	async updateUnitStatus(id: number, newStatus: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string, vqaComment?: string) {
+		await unitRepository.updateStatus(id, newStatus, changedById, estimatedRepairHours, isAvailableToday, note, vqaComment);
 		const unit = await unitRepository.findById(id);
 		if (unit) {
 			broadcastUnitEvent({
@@ -60,6 +60,9 @@ export class UnitService {
 		}
 		if (unit && newStatus === 'ACCEPTED') {
 			await notificationService.notifyUnitAccepted({ id: unit.id, vin: unit.vin });
+		}
+		if (unit && newStatus === 'VQA_PENDING') {
+			await notificationService.notifyVqaPending({ id: unit.id, vin: unit.vin }, vqaComment);
 		}
 		return unit;
 	}

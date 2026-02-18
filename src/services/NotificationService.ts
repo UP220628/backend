@@ -9,6 +9,7 @@ const ROLE_IDS = {
   SCM: 2,
   BODY: 3,
   CARRIER: 4,
+  VQA: 6,
 };
 
 export class NotificationService {
@@ -81,6 +82,13 @@ export class NotificationService {
   async notifyUnitAccepted(unit: { id: number; vin: string }) {
     const message = `Unidad aceptada por Carrier. VIN: ${unit.vin}`;
     return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM, ROLE_IDS.BODY], unit.id, 'UNIT_ACCEPTED', message);
+  }
+
+  async notifyVqaPending(unit: { id: number; vin: string }, comment?: string | null) {
+    const msg = comment
+      ? `Unidad enviada a validación VQA. VIN: ${unit.vin} — Comentario WWS: ${comment}`
+      : `Unidad enviada a validación VQA. VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.VQA, ROLE_IDS.SCM], unit.id, 'VQA_PENDING', msg);
   }
 }
 

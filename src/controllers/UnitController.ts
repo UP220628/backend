@@ -54,11 +54,11 @@ export const createUnit = async (req: Request, res: Response) => {
 export const updateUnitStatus = async (req: Request, res: Response) => {
 	try {
 		const id = Number(req.params.id);
-		const { newStatus, changedById, estimatedRepairHours, isAvailableToday, note } = req.body || {};
+		const { newStatus, changedById, estimatedRepairHours, isAvailableToday, note, vqaComment } = req.body || {};
 		if (!id || !newStatus || !changedById) {
 			return res.status(400).json({ ok: false, error: 'Missing id, newStatus or changedById' });
 		}
-		const unit = await unitService.updateUnitStatus(id, newStatus, Number(changedById), estimatedRepairHours, isAvailableToday, note);
+		const unit = await unitService.updateUnitStatus(id, newStatus, Number(changedById), estimatedRepairHours, isAvailableToday, note, vqaComment);
 		res.json({ ok: true, data: unit });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

@@ -103,6 +103,21 @@ export class AuthController {
     } catch (error) {
       res.status(500).json({ ok: false, error: 'Error en el servidor' });
     }
+  };
+
+  changePassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = res.locals?.user?.userId as number | undefined;
+      const { currentPassword, newPassword } = req.body || {};
+
+      if (!userId) {
+        res.status(401).json({ ok: false, error: 'Authentication required' });
+        return;
+      }
+
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({ ok: false, error: 'Se requiere contraseña actual y nueva' });
+        return;
       }
 
       await this.authService.changePassword(userId, currentPassword, newPassword);

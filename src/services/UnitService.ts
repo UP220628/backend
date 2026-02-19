@@ -150,12 +150,12 @@ export class UnitService {
 		return unitRepository.findByIdWithDefects(unitId);
 	}
 
-	async getDefectStats(todayOnly: boolean = false) {
-		return unitRepository.getDefectStats(todayOnly);
+	async getDefectStats(todayOnly: boolean = false, plant?: string) {
+		return unitRepository.getDefectStats(todayOnly, plant);
 	}
 
-	async getTodayUnits(providerId?: number) {
-		return unitRepository.getTodayUnits(providerId);
+	async getTodayUnits(providerId?: number, plant?: string) {
+		return unitRepository.getTodayUnits(providerId, plant);
 	}
 
 	async setScmDecision(unitId: number, decision: string, note: string | null, decidedById: number) {
@@ -172,8 +172,8 @@ export class UnitService {
 		return unit;
 	}
 
-	async getStatusStats(): Promise<Record<string, number>> {
-		return unitRepository.getStatusStats();
+	async getStatusStats(plant?: string): Promise<Record<string, number>> {
+		return unitRepository.getStatusStats(plant);
 	}
 
 	async updateEstimatedRepairTime(id: number, estimatedRepairHours: number, updatedById: number) {
@@ -190,8 +190,8 @@ export class UnitService {
 		return unit;
 	}
 
-	async getUnitsInRepair(providerId?: number) {
-		return unitRepository.getUnitsInRepair(providerId);
+	async getUnitsInRepair(providerId?: number, plant?: string) {
+		return unitRepository.getUnitsInRepair(providerId, plant);
 	}
 
 	async getUnitWithDefects(id: number) {

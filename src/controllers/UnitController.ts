@@ -22,8 +22,10 @@ export const listUnits = async (req: Request, res: Response) => {
 
 export const getDefectStats = async (req: Request, res: Response) => {
 	try {
+		const user = res.locals.user;
 		const filterToday = req.query.filter === 'today';
-		const stats = await unitService.getDefectStats(filterToday);
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		const stats = await unitService.getDefectStats(filterToday, plant);
 		res.json({ ok: true, data: stats });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
@@ -157,8 +159,9 @@ export const getTodayUnits = async (req: Request, res: Response) => {
 	try {
 		const user = res.locals.user;
 		const providerId = user?.roleId === 4 && user.providerId ? user.providerId : undefined;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
 		
-		const data = await unitService.getTodayUnits(providerId);
+		const data = await unitService.getTodayUnits(providerId, plant);
 		res.json({ ok: true, data });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
@@ -188,7 +191,9 @@ export const setScmDecision = async (req: Request, res: Response) => {
 
 export const getStatusStats = async (req: Request, res: Response) => {
 	try {
-		const stats = await unitService.getStatusStats();
+		const user = res.locals.user;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		const stats = await unitService.getStatusStats(plant);
 		res.json({ ok: true, data: stats });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
@@ -214,7 +219,8 @@ export const getUnitsInRepair = async (req: Request, res: Response) => {
 		const user = res.locals.user;
 		// CARRIER solo puede ver sus propias unidades, otros roles ven todas
 		const providerId = user?.roleId === 4 && user.providerId ? user.providerId : undefined;
-		const units = await unitService.getUnitsInRepair(providerId);
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		const units = await unitService.getUnitsInRepair(providerId, plant);
 		res.json({ ok: true, data: units });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

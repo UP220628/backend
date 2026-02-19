@@ -432,12 +432,15 @@ export class UnitRepository {
 		`;
 	}
 
-	async getDefectStats(todayOnly: boolean = false): Promise<{ v1: number; v2: number; v3: number }> {
+	async getDefectStats(todayOnly: boolean = false, plant?: string): Promise<{ v1: number; v2: number; v3: number }> {
 		const result = await sql<Array<{ code: string; count: number }>>`
 			SELECT dg.code, COUNT(ud.id)::int as count
 			FROM "UnitDefect" ud
 			JOIN "DefectGrade" dg ON dg.id = ud."gradeId"
-			${todayOnly ? sql`JOIN "Unit" u ON u.id = ud."unitId" WHERE ud."isActive" = TRUE AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date` : sql`WHERE ud."isActive" = TRUE`}
+			JOIN "Unit" u ON u.id = ud."unitId"
+			WHERE ud."isActive" = ${true}
+			${todayOnly ? sql`AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date` : sql``}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
 			GROUP BY dg.code
 		`;
 
@@ -450,7 +453,7 @@ export class UnitRepository {
 		return stats;
 	}
 
-	async getTodayUnits(providerId?: number): Promise<any[]> {
+	async getTodayUnits(providerId?: number, plant?: string): Promise<any[]> {
 		const result = await sql<any[]>`
 			SELECT
 				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
@@ -480,6 +483,7 @@ export class UnitRepository {
 			) last_status ON TRUE
 			WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
 			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY u."createdAt" DESC
 		`;
 		
@@ -511,13 +515,14 @@ export class UnitRepository {
 		`;
 	}
 
-async getStatusStats(): Promise<Record<string, number>> {
+async getStatusStats(plant?: string): Promise<Record<string, number>> {
 	const result = await sql<Array<{ statusName: string; count: number }>>`
 		SELECT 
 			s.name as "statusName",
 			COUNT(u.id)::int as count
 		FROM "UnitStatus" s
 		LEFT JOIN "Unit" u ON u."statusId" = s.id
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
 		GROUP BY s.name
 		HAVING COUNT(u.id) > 0
 		ORDER BY s.name
@@ -531,7 +536,7 @@ async getStatusStats(): Promise<Record<string, number>> {
 	}
 
 	// Obtener unidades actualmente en reparación con tiempos estimados
-	async getUnitsInRepair(providerId?: number): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
+	async getUnitsInRepair(providerId?: number, plant?: string): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
 		const result = await sql<any[]>`
 			SELECT 
 				u.id, 
@@ -547,6 +552,7 @@ async getStatusStats(): Promise<Record<string, number>> {
 			WHERE s.name = 'IN_REPAIR' 
 			AND u."estimatedRepairHours" IS NOT NULL
 			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
 		`;
 		return result;

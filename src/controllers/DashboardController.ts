@@ -3,6 +3,9 @@ import sql from '../config/database';
 
 export const getWeeklyUnitsByProvider = async (req: Request, res: Response) => {
 	try {
+		const user = res.locals.user;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+
 		const result = await sql<any[]>`
 			WITH date_range AS (
 				SELECT 
@@ -17,6 +20,7 @@ export const getWeeklyUnitsByProvider = async (req: Request, res: Response) => {
 				FROM "Unit" u
 				LEFT JOIN "Provider" p ON p.id = u."providerId"
 				WHERE p.name IS NOT NULL
+				${plant ? sql`AND u.plant = ${plant}` : sql``}
 				GROUP BY (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date, p.name
 			)
 			SELECT 
@@ -37,6 +41,9 @@ export const getWeeklyUnitsByProvider = async (req: Request, res: Response) => {
 
 export const getMonthlyUnitsTimeline = async (req: Request, res: Response) => {
 	try {
+		const user = res.locals.user;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+
 		const result = await sql<any[]>`
 			WITH date_range AS (
 				SELECT 
@@ -48,6 +55,7 @@ export const getMonthlyUnitsTimeline = async (req: Request, res: Response) => {
 				COUNT(u.id)::int as count
 			FROM date_range dr
 			LEFT JOIN "Unit" u ON (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = dr.day
+				${plant ? sql`AND u.plant = ${plant}` : sql``}
 			GROUP BY dr.day
 			ORDER BY dr.day
 		`;

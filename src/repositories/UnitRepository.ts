@@ -227,8 +227,11 @@ export class UnitRepository {
 		// Marcar todos los defectos activos como resueltos cuando BODY libera la unidad
 		if (newStatusName === 'RELEASED') {
 			await trx`
-				UPDATE "UnitDefect" SET "isResolved" = TRUE, "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
-				WHERE "unitId" = ${unitId} AND "isActive" = TRUE AND "isResolved" = FALSE
+				UPDATE "UnitDefect"
+				SET "isResolved" = ${true}, "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+				WHERE "unitId" = ${unitId}
+				  AND "isActive" = ${true}
+				  AND "isResolved" = ${false}
 			`;
 		}
 

@@ -12,6 +12,8 @@ export class UserService {
 			if (r === 'SCM') return 2;
 			if (r === 'BODY') return 3;
 			if (r === 'CARRIER') return 4;
+			if (r === 'ADMIN') return 5;
+			if (r === 'VQA') return 6;
 			const asNum = Number(role);
 			if (!isNaN(asNum)) return asNum;
 		}

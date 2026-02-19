@@ -220,3 +220,19 @@ export const getUnitsInRepair = async (req: Request, res: Response) => {
 		res.status(500).json({ ok: false, error: err.message });
 	}
 };
+
+export const getUnitById = async (req: Request, res: Response) => {
+	try {
+		const id = Number(req.params.id);
+		if (!id) {
+			return res.status(400).json({ ok: false, error: 'Missing unit id' });
+		}
+		const unit = await unitService.getUnitWithDefects(id);
+		if (!unit) {
+			return res.status(404).json({ ok: false, error: 'Unit not found' });
+		}
+		res.json({ ok: true, data: unit });
+	} catch (err: any) {
+		res.status(500).json({ ok: false, error: err.message });
+	}
+};

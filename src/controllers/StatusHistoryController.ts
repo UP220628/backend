@@ -16,6 +16,7 @@ export const getLogs = async (req: Request, res: Response) => {
       order: (req.query.order === 'asc' ? 'asc' : req.query.order === 'desc' ? 'desc' : undefined) as 'asc'|'desc'|undefined,
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       providerId: undefined as number | undefined,
+      plant: typeof req.query.plant === 'string' ? req.query.plant : undefined,
     };
 
     // Si el usuario es CARRIER (roleId: 4), filtrar por su proveedor
@@ -44,6 +45,7 @@ export const exportLogsToExcel = async (req: Request, res: Response) => {
       order: (req.query.order === 'asc' ? 'asc' : req.query.order === 'desc' ? 'desc' : undefined) as 'asc'|'desc'|undefined,
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       providerId: undefined as number | undefined,
+      plant: typeof req.query.plant === 'string' ? req.query.plant : undefined,
     };
 
     if (user && user.roleId === 4 && user.providerId) {

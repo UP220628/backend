@@ -10,6 +10,7 @@ export interface StatusHistoryFilters {
   order?: 'asc' | 'desc';
   limit?: number;
   providerId?: number;
+  plant?: string;
 }
 
 export class StatusHistoryRepository {
@@ -38,6 +39,11 @@ export class StatusHistoryRepository {
     if (filters.providerId) {
       where.push(`u."providerId" = $${paramIndex}`);
       params.push(filters.providerId);
+      paramIndex++;
+    }
+    if (filters.plant) {
+      where.push(`u.plant = $${paramIndex}`);
+      params.push(filters.plant);
       paramIndex++;
     }
     // Filtros de fecha para REPORTED events

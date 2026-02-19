@@ -193,6 +193,10 @@ export class UnitService {
 	async getUnitsInRepair(providerId?: number) {
 		return unitRepository.getUnitsInRepair(providerId);
 	}
+
+	async getUnitWithDefects(id: number) {
+		return unitRepository.findByIdWithDefects(id);
+	}
 }
 
 export const unitService = new UnitService();

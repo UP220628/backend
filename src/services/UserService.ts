@@ -115,7 +115,7 @@ export class UserService {
 					email = COALESCE(${emailParam}, email),
 					name = COALESCE(${nameParam}, name),
 					"roleId" = COALESCE(${roleParam}, "roleId"),
-					plant = ${plant},
+					plant = ${plant ?? null},
 					"updatedAt" = NOW()
 				WHERE id = ${id}
 			`;
@@ -126,7 +126,7 @@ export class UserService {
 					email = COALESCE(${emailParam}, email),
 					name = COALESCE(${nameParam}, name),
 					"roleId" = COALESCE(${roleParam}, "roleId"),
-					"providerId" = ${providerId === null ? null : providerId},
+					"providerId" = ${providerId ?? null},
 					"updatedAt" = NOW()
 				WHERE id = ${id}
 			`;
@@ -137,8 +137,8 @@ export class UserService {
 					email = COALESCE(${emailParam}, email),
 					name = COALESCE(${nameParam}, name),
 					"roleId" = COALESCE(${roleParam}, "roleId"),
-					"providerId" = ${providerId === null ? null : providerId},
-					plant = ${plant},
+					"providerId" = ${providerId ?? null},
+					plant = ${plant ?? null},
 					"updatedAt" = NOW()
 				WHERE id = ${id}
 			`;

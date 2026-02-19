@@ -10,12 +10,13 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       const token = auth.slice(7).trim();
       try {
         const payload = jwt.verify(token, env.jwtSecret) as any;
-        // payload is expected to include { userId, email, roleId, providerId }
+        // payload is expected to include { userId, email, roleId, providerId, plant }
         res.locals.user = {
           userId: payload.userId,
           email: payload.email,
           roleId: payload.roleId,
           providerId: payload.providerId,
+          plant: payload.plant,
         };
         return next();
       } catch (err: any) {

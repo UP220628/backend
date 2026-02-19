@@ -4,19 +4,19 @@ import { broadcastUnitEvent } from '../realtime/unitEventStream';
 import { Unit } from '../types';
 
 export class UnitService {
-	async listUnits(limit?: number, providerId?: number) {
-		return unitRepository.findAll(limit, providerId);
+	async listUnits(limit?: number, providerId?: number, plant?: string) {
+		return unitRepository.findAll(limit, providerId, plant);
 	}
 
-	async listUnitsByStatus(name: string, limit?: number, providerId?: number) {
-		return unitRepository.findByStatusName(name, limit, providerId);
+	async listUnitsByStatus(name: string, limit?: number, providerId?: number, plant?: string) {
+		return unitRepository.findByStatusName(name, limit, providerId, plant);
 	}
 
-	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>, registeredByRoleId?: number) {
-		// Check if VIN already exists
-		const existingUnit = await unitRepository.findByVin(payload.vin);
+	async createUnit(payload: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'|'plant'>, registeredByRoleId?: number) {
+		// Check if VIN already exists in the same plant
+		const existingUnit = await unitRepository.findByVin(payload.vin, payload.plant);
 		if (existingUnit) {
-			throw new Error(`Unit with VIN ${payload.vin} already exists`);
+			throw new Error(`Unit with VIN ${payload.vin} already exists${payload.plant ? ` in plant ${payload.plant}` : ''}`);
 		}
 		
 		// Si el usuario que registra es WWS (roleId = 1), la unidad inicia en SENT

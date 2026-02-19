@@ -5,7 +5,7 @@ export class UserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const pool = await getPool();
     const query = `
-      SELECT id, email, password, name, "roleId", "providerId", 
+      SELECT id, email, password, name, "roleId", "providerId", plant,
              "createdAt", "updatedAt"
       FROM "User"
       WHERE email = $1
@@ -23,7 +23,7 @@ export class UserRepository {
   async findById(id: number): Promise<User | null> {
     const pool = await getPool();
     const query = `
-      SELECT id, email, password, name, "roleId", "providerId",
+      SELECT id, email, password, name, "roleId", "providerId", plant,
              "createdAt", "updatedAt"
       FROM "User"
       WHERE id = $1
@@ -41,9 +41,9 @@ export class UserRepository {
   async create(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
     const pool = await getPool();
     const query = `
-      INSERT INTO "User" (email, password, name, "roleId", "providerId")
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, email, password, name, "roleId", "providerId",
+      INSERT INTO "User" (email, password, name, "roleId", "providerId", plant)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, email, password, name, "roleId", "providerId", plant,
                 "createdAt", "updatedAt"
     `;
     
@@ -53,6 +53,7 @@ export class UserRepository {
       user.name,
       user.roleId,
       user.providerId,
+      user.plant,
     ]);
     
     return result.rows[0];
@@ -68,12 +69,24 @@ export class UserRepository {
     await pool.query(query, [hashedPassword, userId]);
   }
 
-  async findByRoleIds(roleIds: number[]): Promise<User[]> {
+  async findByRoleIds(roleIds: number[], plant?: string): Promise<User[]> {
     if (roleIds.length === 0) return [];
 
     const pool = await getPool();
+    
+    if (plant) {
+      const query = `
+        SELECT id, email, password, name, "roleId", "providerId", plant,
+               "createdAt", "updatedAt"
+        FROM "User"
+        WHERE "roleId" = ANY($1::int[]) AND (plant = $2 OR plant IS NULL)
+      `;
+      const result = await pool.query(query, [roleIds, plant]);
+      return result.rows;
+    }
+
     const query = `
-      SELECT id, email, password, name, "roleId", "providerId",
+      SELECT id, email, password, name, "roleId", "providerId", plant,
              "createdAt", "updatedAt"
       FROM "User"
       WHERE "roleId" = ANY($1::int[])

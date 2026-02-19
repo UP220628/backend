@@ -26,8 +26,9 @@ export class UserService {
 		name: string;
 		roleId: any;
 		providerId?: number;
+		plant?: string;
 	}): Promise<any> {
-		const { email, password, name, roleId, providerId } = data;
+		const { email, password, name, roleId, providerId, plant } = data;
 
 		if (!email || !password || !name || !roleId) {
 			throw new Error('Missing required fields: email, password, name, roleId');
@@ -41,14 +42,19 @@ export class UserService {
 			throw new Error('CARRIER role requires a providerId');
 		}
 
+		// Validación: Si plant está presente, debe ser A1 o A2
+		if (plant && !['A1', 'A2'].includes(plant)) {
+			throw new Error('Plant must be A1 or A2');
+		}
+
 		// Encriptar contraseña
 		const saltRounds = 10;
 		const hashed = await bcrypt.hash(password, saltRounds);
 
-		const result = await sql<[{ id: number; email: string; name: string; 'roleId': number; 'providerId': number | null; 'createdAt': string; 'updatedAt': string }]>`
-			INSERT INTO "User" (email, password, name, "roleId", "providerId", "createdAt", "updatedAt")
-			VALUES (${email}, ${hashed}, ${name}, ${finalRoleId}, ${providerId ?? null}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
-			RETURNING id, email, name, "roleId", "providerId", "createdAt", "updatedAt"
+		const result = await sql<[{ id: number; email: string; name: string; 'roleId': number; 'providerId': number | null; plant: string | null; 'createdAt': string; 'updatedAt': string }]>`
+			INSERT INTO "User" (email, password, name, "roleId", "providerId", plant, "createdAt", "updatedAt")
+			VALUES (${email}, ${hashed}, ${name}, ${finalRoleId}, ${providerId ?? null}, ${plant ?? null}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
+			RETURNING id, email, name, "roleId", "providerId", plant, "createdAt", "updatedAt"
 		`;
 
 		return result[0];
@@ -56,7 +62,7 @@ export class UserService {
 
 	async listUsers(): Promise<any[]> {
 		const rows = await sql<any[]>`
-			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u."createdAt", u."updatedAt"
+			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u.plant, u."createdAt", u."updatedAt"
 			FROM "User" u
 			JOIN "Role" r ON r.id = u."roleId"
 			LEFT JOIN "Provider" p ON p.id = u."providerId"
@@ -71,11 +77,17 @@ export class UserService {
 		name?: string;
 		roleId?: any;
 		providerId?: number;
+		plant?: string | null;
 	}): Promise<any> {
 		if (!id) throw new Error('Missing id');
 
-		const { email, password, name, roleId, providerId } = data;
+		const { email, password, name, roleId, providerId, plant } = data;
 		const finalRoleId = roleId ? this.mapRoleId(roleId) : undefined;
+
+		// Validación: Si plant está presente, debe ser A1 o A2
+		if (plant !== undefined && plant !== null && !['A1', 'A2'].includes(plant)) {
+			throw new Error('Plant must be A1 or A2');
+		}
 
 		// Si se incluye password, hashearla
 		let hashed: string | null = null;
@@ -87,7 +99,8 @@ export class UserService {
 		const nameParam = name === undefined ? null : name;
 		const roleParam = finalRoleId === undefined ? null : finalRoleId;
 
-		if (providerId === undefined) {
+		// Build dynamic update
+		if (providerId === undefined && plant === undefined) {
 			await sql`
 				UPDATE "User" SET
 					email = COALESCE(${emailParam}, email),
@@ -96,7 +109,17 @@ export class UserService {
 					"updatedAt" = NOW()
 				WHERE id = ${id}
 			`;
-		} else {
+		} else if (plant !== undefined && providerId === undefined) {
+			await sql`
+				UPDATE "User" SET
+					email = COALESCE(${emailParam}, email),
+					name = COALESCE(${nameParam}, name),
+					"roleId" = COALESCE(${roleParam}, "roleId"),
+					plant = ${plant},
+					"updatedAt" = NOW()
+				WHERE id = ${id}
+			`;
+		} else if (plant === undefined && providerId !== undefined) {
 			// providerId explicitly provided (may be null)
 			await sql`
 				UPDATE "User" SET
@@ -104,6 +127,18 @@ export class UserService {
 					name = COALESCE(${nameParam}, name),
 					"roleId" = COALESCE(${roleParam}, "roleId"),
 					"providerId" = ${providerId === null ? null : providerId},
+					"updatedAt" = NOW()
+				WHERE id = ${id}
+			`;
+		} else {
+			// Both plant and providerId provided
+			await sql`
+				UPDATE "User" SET
+					email = COALESCE(${emailParam}, email),
+					name = COALESCE(${nameParam}, name),
+					"roleId" = COALESCE(${roleParam}, "roleId"),
+					"providerId" = ${providerId === null ? null : providerId},
+					plant = ${plant},
 					"updatedAt" = NOW()
 				WHERE id = ${id}
 			`;
@@ -116,7 +151,7 @@ export class UserService {
 		}
 
 		const rows = await sql<any[]>`
-			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u."createdAt", u."updatedAt"
+			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u.plant, u."createdAt", u."updatedAt"
 			FROM "User" u
 			JOIN "Role" r ON r.id = u."roleId"
 			LEFT JOIN "Provider" p ON p.id = u."providerId"

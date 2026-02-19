@@ -2,10 +2,14 @@ import sql from '../config/database';
 import type { Unit } from '../types';
 
 export class UnitRepository {
-	async findAll(limit = 50, providerId?: number): Promise<Array<Unit & { statusName: string }>> {
+	async findAll(limit = 50, providerId?: number, plant?: string): Promise<Array<Unit & { statusName: string }>> {
+		// Build WHERE conditions dynamically
+		const hasProvider = providerId !== undefined && providerId !== null;
+		const hasPlant = plant !== undefined && plant !== null;
+		
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId", u.plant,
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -13,7 +17,9 @@ export class UnitRepository {
 				s.name as "statusName"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
-		${providerId ? sql`WHERE u."providerId" = ${providerId}` : sql``}
+			WHERE 1=1
+			${hasProvider ? sql`AND u."providerId" = ${providerId}` : sql``}
+			${hasPlant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY u."createdAt" DESC
 			LIMIT ${limit}
 		`;
@@ -23,7 +29,7 @@ export class UnitRepository {
 	async findById(id: number): Promise<(Unit & { statusName: string }) | null> {
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId", u.plant,
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -46,10 +52,10 @@ export class UnitRepository {
 		return result[0]?.providerId ?? null;
 	}
 
-	async findByVin(vin: string): Promise<(Unit & { statusName: string }) | null> {
+	async findByVin(vin: string, plant?: string): Promise<(Unit & { statusName: string }) | null> {
 		const result = await sql<Array<Unit & { statusName: string }>>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId", u.plant,
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -58,14 +64,18 @@ export class UnitRepository {
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			WHERE u.vin = ${vin}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
 		`;
 		return result[0] || null;
 	}
 
-	async findByStatusName(name: string, limit = 50, providerId?: number): Promise<Array<Unit & { statusName: string; defects?: any[] }>> {
+	async findByStatusName(name: string, limit = 50, providerId?: number, plant?: string): Promise<Array<Unit & { statusName: string; defects?: any[] }>> {
+		const hasProvider = providerId !== undefined && providerId !== null;
+		const hasPlant = plant !== undefined && plant !== null;
+		
 		const result = await sql<any[]>`
 			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId", u.plant,
 				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
 				u."estimatedCompletionDate",
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
@@ -76,8 +86,9 @@ export class UnitRepository {
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "UnitDefect" d ON d."unitId" = u.id AND d."isActive" = TRUE
 			LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
-		WHERE s.name = ${name}
-			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
+			WHERE s.name = ${name}
+			${hasProvider ? sql`AND u."providerId" = ${providerId}` : sql``}
+			${hasPlant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY u."createdAt" DESC
 			LIMIT ${limit}
 		`;
@@ -93,6 +104,7 @@ export class UnitRepository {
 					lane: row.lane,
 					statusId: row.statusId,
 					providerId: row.providerId,
+					plant: row.plant,
 					statusName: row.statusName,
 					isAvailableToday: row.isAvailableToday,
 					registeredById: row.registeredById,
@@ -250,7 +262,7 @@ export class UnitRepository {
 	});
 }
 
-	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'>, initialStatus: string = 'REPORTED'): Promise<number> {
+	async create(unit: Pick<Unit, 'vin'|'market'|'lane'|'registeredById'|'providerId'|'plant'>, initialStatus: string = 'REPORTED'): Promise<number> {
 		return await sql.begin(async (trx: any) => {
 			// Obtener el statusId del estado inicial especificado
 			const statusResult = await trx`
@@ -264,8 +276,8 @@ export class UnitRepository {
 			
 			// Insertar la unidad
 			const result = await trx`
-				INSERT INTO "Unit" (vin, market, lane, "registeredById", "providerId", "statusId", "createdAt", "updatedAt")
-				VALUES (${unit.vin}, ${unit.market}, ${unit.lane}, ${unit.registeredById}, ${unit.providerId || null}, ${statusId}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
+				INSERT INTO "Unit" (vin, market, lane, "registeredById", "providerId", plant, "statusId", "createdAt", "updatedAt")
+				VALUES (${unit.vin}, ${unit.market}, ${unit.lane}, ${unit.registeredById}, ${unit.providerId || null}, ${unit.plant || null}, ${statusId}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
 				RETURNING id
 			`;
 			

@@ -8,9 +8,12 @@ export const listUnits = async (req: Request, res: Response) => {
 		const status = typeof req.query.status === 'string' ? req.query.status : undefined;
 		const providerId = user?.roleId === 4 && user.providerId ? user.providerId : undefined; // CARRIER filtra por su proveedor
 		
+		// Plant filtering: ADMIN (roleId=5) sees all plants, others see only their plant
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		
 		const data = status 
-			? await unitService.listUnitsByStatus(status, limit, providerId) 
-			: await unitService.listUnits(limit, providerId);
+			? await unitService.listUnitsByStatus(status, limit, providerId, plant) 
+			: await unitService.listUnits(limit, providerId, plant);
 		res.json({ ok: true, data });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });
@@ -30,7 +33,7 @@ export const getDefectStats = async (req: Request, res: Response) => {
 export const createUnit = async (req: Request, res: Response) => {
 	try {
 		const user = res.locals.user;
-		const { vin, market, lane, registeredById, providerId } = req.body || {};
+		const { vin, market, lane, registeredById, providerId, plant } = req.body || {};
 		if (!vin || !market || !lane || !registeredById) {
 			return res.status(400).json({ ok: false, error: 'Missing required fields' });
 		}
@@ -44,7 +47,20 @@ export const createUnit = async (req: Request, res: Response) => {
 			finalProviderId = user.providerId;
 		}
 		
-		const unit = await unitService.createUnit({ vin, market, lane, registeredById, providerId: finalProviderId }, user?.roleId);
+		// Determinar la planta:
+		// 1. Si viene plant en el body, usar ese (solo ADMIN puede especificar cualquier planta)
+		// 2. Si el usuario tiene plant asignado, usar el del usuario
+		// 3. Si no, dejar null
+		let finalPlant = plant;
+		if (!finalPlant && user?.plant) {
+			finalPlant = user.plant;
+		}
+		// Validar que no-admin no pueda crear en otra planta
+		if (user?.roleId !== 5 && user?.plant && plant && plant !== user.plant) {
+			return res.status(403).json({ ok: false, error: 'Cannot create units in a different plant' });
+		}
+		
+		const unit = await unitService.createUnit({ vin, market, lane, registeredById, providerId: finalProviderId, plant: finalPlant }, user?.roleId);
 		res.status(201).json({ ok: true, data: unit });
 	} catch (err: any) {
 		res.status(500).json({ ok: false, error: err.message });

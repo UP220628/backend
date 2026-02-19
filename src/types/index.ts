@@ -1,3 +1,5 @@
+export type Plant = 'A1' | 'A2';
+
 export interface User {
   id: number;
   email: string;
@@ -5,6 +7,7 @@ export interface User {
   name: string;
   roleId: number;
   providerId?: number;
+  plant?: Plant;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +56,7 @@ export interface Unit {
   isAvailableToday: boolean;
   registeredById: number;
   providerId?: number;
+  plant?: Plant;
   estimatedRepairHours?: number;
   estimatedCompletionDate?: Date;
   vqaComment?: string | null;
@@ -106,6 +110,7 @@ export interface CreateUnitDTO {
   vin: string;
   market: string;
   lane: string;
+  plant?: Plant;
   defects?: CreateDefectDTO[];
 }
 
@@ -185,4 +190,5 @@ export interface RegisterUserDTO {
   name: string;
   roleId: number;
   providerId?: number;
+  plant?: Plant;
 }

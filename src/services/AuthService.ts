@@ -17,6 +17,7 @@ export interface AuthResponse {
     name: string;
     roleId: number;
     providerId?: number;
+    plant?: string;
   };
   token: string;
   refreshToken: string;
@@ -53,6 +54,7 @@ export class AuthService {
         email: user.email,
         roleId: user.roleId,
         providerId: user.providerId,
+        plant: user.plant,
       },
       this.jwtSecret,
       { expiresIn: this.jwtExpiresIn } as jwt.SignOptions
@@ -117,6 +119,7 @@ export class AuthService {
         name: user.name,
         roleId: user.roleId,
         providerId: user.providerId,
+        plant: user.plant,
       },
       token: accessToken,
       refreshToken,

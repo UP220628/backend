@@ -224,6 +224,14 @@ export class UnitRepository {
 			updates.priorityRank = null;
 		}
 
+		// Marcar todos los defectos activos como resueltos cuando BODY libera la unidad
+		if (newStatusName === 'RELEASED') {
+			await trx`
+				UPDATE "UnitDefect" SET "isResolved" = TRUE, "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+				WHERE "unitId" = ${unitId} AND "isActive" = TRUE AND "isResolved" = FALSE
+			`;
+		}
+
 		if (isAvailableToday !== undefined) {
 			updates.isAvailableToday = isAvailableToday;
 		}

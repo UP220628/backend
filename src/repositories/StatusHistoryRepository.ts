@@ -70,14 +70,14 @@ export class StatusHistoryRepository {
 
     const whereSql = where.length ? `AND ${where.join(' AND ')}` : '';
 
-    // Query para obtener todos los eventos de unidades que fueron REPORTADAS dentro del rango
+    // Query para obtener todos los eventos de unidades que fueron REPORTADAS o SENT (WWS) dentro del rango
     const query = `
       WITH filtered_units AS (
         SELECT DISTINCT u.id as "unitId"
         FROM "UnitEvent" e
         JOIN "Unit" u ON u.id = e."unitId"
         WHERE e."eventType" = 'STATUS_CHANGE'
-          AND e."eventData"->>'newStatus' = 'REPORTED'
+          AND e."eventData"->>'newStatus' IN ('REPORTED', 'SENT')
           ${reportedDateFilter}
           ${whereSql}
       )

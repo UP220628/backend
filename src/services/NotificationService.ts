@@ -20,7 +20,11 @@ export class NotificationService {
     message: string,
     options?: { carrierProviderId?: number | null }
   ) {
-    const users = await userRepository.findByRoleIds(roleIds);
+    // Get the unit's plant to filter notification recipients
+    const unit = await unitRepository.findById(unitId);
+    const unitPlant = unit?.plant ?? undefined;
+
+    const users = await userRepository.findByRoleIds(roleIds, unitPlant);
     if (users.length === 0) return [];
 
     const filteredUsers = users.filter(user => {

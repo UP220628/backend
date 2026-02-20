@@ -31,6 +31,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'UNIT_REPORTED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 			return unit;
@@ -46,6 +47,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'STATUS_CHANGED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -75,6 +77,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'NOTE_ADDED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -89,6 +92,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'PRIORITY_UPDATED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -107,6 +111,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'PRIORITY_UPDATED',
+				plant: (unit as any).plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -130,6 +135,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'DEFECT_UPDATED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -144,6 +150,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'DEFECT_UPDATED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -166,6 +173,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'SCM_DECISION',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}
@@ -184,6 +192,7 @@ export class UnitService {
 				unitId: unit.id,
 				status: unit.statusName,
 				event: 'REPAIR_TIME_UPDATED',
+				plant: unit.plant ?? undefined,
 				createdAt: new Date().toISOString(),
 			});
 		}

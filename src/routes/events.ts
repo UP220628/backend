@@ -15,8 +15,11 @@ router.get('/units', (req: Request, res: Response) => {
     return res.status(500).json({ ok: false, error: 'JWT_SECRET not configured on server' });
   }
 
+  let userPlant: string | undefined;
   try {
-    jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret) as any;
+    // Extract plant from JWT for plant-aware SSE filtering
+    userPlant = payload.plant;
   } catch (err: any) {
     return res.status(401).json({ ok: false, error: 'Invalid token' });
   }
@@ -28,7 +31,7 @@ router.get('/units', (req: Request, res: Response) => {
 
   res.write('event: connected\ndata: {"ok": true}\n\n');
 
-  addUnitEventClient(res);
+  addUnitEventClient(res, userPlant);
 
   const keepAlive = setInterval(() => {
     res.write(':keep-alive\n\n');

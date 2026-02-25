@@ -118,7 +118,7 @@ export const updatePriorityOrder = async (req: Request, res: Response) => {
 export const addDefectToUnit = async (req: Request, res: Response) => {
 	try {
 		const id = Number(req.params.id);
-		const { defectType, zone, grade, registeredById, description, isFromWws, overrideExisting, wwsVersion } = req.body || {};
+		const { defectType, zone, grade, registeredById, description, isFromWws, overrideExisting, wwsVersion, photoUrls } = req.body || {};
 		if (!id || !defectType || !zone || !grade || !registeredById) {
 			return res.status(400).json({ ok: false, error: 'Missing id, defectType, zone, grade or registeredById' });
 		}
@@ -129,6 +129,7 @@ export const addDefectToUnit = async (req: Request, res: Response) => {
 			isFromWws: !!isFromWws,
 			overrideExisting: !!overrideExisting,
 			wwsVersion: typeof wwsVersion === 'string' ? wwsVersion : undefined,
+			photoUrls: Array.isArray(photoUrls) ? photoUrls as string[] : undefined,
 		};
 		const unit = await unitService.addDefectToUnit(id, defectType, zone, grade, Number(registeredById), description, options);
 		res.status(201).json({ ok: true, data: unit });

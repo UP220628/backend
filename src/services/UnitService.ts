@@ -126,7 +126,7 @@ export class UnitService {
 		grade: string,
 		registeredById: number,
 		description?: string,
-		options?: { isFromWws?: boolean; overrideExisting?: boolean; wwsVersion?: string }
+		options?: { isFromWws?: boolean; overrideExisting?: boolean; wwsVersion?: string; photoUrls?: string[] }
 	) {
 		await unitRepository.createDefect(id, defectType, zone, grade, description ?? null, registeredById, options);
 		const unit = await unitRepository.findById(id);

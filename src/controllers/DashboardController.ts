@@ -65,3 +65,80 @@ export const getMonthlyUnitsTimeline = async (req: Request, res: Response) => {
 		res.status(500).json({ ok: false, error: err.message });
 	}
 };
+
+/** Defectos activos agrupados por modelo (dígitos 5-6 del VIN) y grado */
+export const getDefectsByModel = async (req: Request, res: Response) => {
+	try {
+		const user = res.locals.user;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		const filter = typeof req.query.filter === 'string' ? req.query.filter : undefined;
+
+		const dateFilter =
+			filter === 'today'
+				? sql`AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date`
+				: filter === 'week'
+				? sql`AND u."createdAt" >= NOW() - INTERVAL '7 days'`
+				: filter === 'month'
+				? sql`AND u."createdAt" >= NOW() - INTERVAL '30 days'`
+				: sql``;
+
+		const result = await sql<any[]>`
+			SELECT
+				SUBSTRING(u.vin, 5, 2) AS model_code,
+				dg.code AS grade,
+				COUNT(ud.id)::int AS count
+			FROM "UnitDefect" ud
+			JOIN "Unit" u ON u.id = ud."unitId"
+			JOIN "DefectGrade" dg ON dg.id = ud."gradeId"
+			WHERE ud."isActive" = TRUE
+			${dateFilter}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
+			GROUP BY SUBSTRING(u.vin, 5, 2), dg.code
+			ORDER BY model_code, grade
+		`;
+
+		res.json({ ok: true, data: result });
+	} catch (err: any) {
+		res.status(500).json({ ok: false, error: err.message });
+	}
+};
+
+/** Tipos de defecto más repetidos */
+export const getDefectsByType = async (req: Request, res: Response) => {
+	try {
+		const user = res.locals.user;
+		const plant = user?.roleId === 5 ? undefined : user?.plant;
+		const filter = typeof req.query.filter === 'string' ? req.query.filter : undefined;
+		const grade = typeof req.query.grade === 'string' ? req.query.grade.toUpperCase() : undefined;
+
+		const dateFilter =
+			filter === 'today'
+				? sql`AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date`
+				: filter === 'week'
+				? sql`AND u."createdAt" >= NOW() - INTERVAL '7 days'`
+				: filter === 'month'
+				? sql`AND u."createdAt" >= NOW() - INTERVAL '30 days'`
+				: sql``;
+
+		const result = await sql<any[]>`
+			SELECT
+				ud."defectType" AS type,
+				dg.code AS grade,
+				COUNT(ud.id)::int AS count
+			FROM "UnitDefect" ud
+			JOIN "Unit" u ON u.id = ud."unitId"
+			JOIN "DefectGrade" dg ON dg.id = ud."gradeId"
+			WHERE ud."isActive" = TRUE
+			${dateFilter}
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
+			${grade ? sql`AND dg.code = ${grade}` : sql``}
+			GROUP BY ud."defectType", dg.code
+			ORDER BY count DESC
+			LIMIT 10
+		`;
+
+		res.json({ ok: true, data: result });
+	} catch (err: any) {
+		res.status(500).json({ ok: false, error: err.message });
+	}
+};

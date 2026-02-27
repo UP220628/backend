@@ -3,14 +3,7 @@ import { unitRepository } from '../repositories/UnitRepository';
 import { userRepository } from '../repositories/UserRepository';
 import { broadcastNotifications } from '../realtime/notificationHub';
 import type { Notification } from '../types';
-
-const ROLE_IDS = {
-  WWS: 1,
-  SCM: 2,
-  BODY: 3,
-  CARRIER: 4,
-  VQA: 6,
-};
+import { ROLE_IDS } from '../constants';
 
 export class NotificationService {
   private async createForRoleIds(

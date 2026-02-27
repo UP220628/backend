@@ -2,24 +2,17 @@ import bcrypt from 'bcryptjs';
 import { userRepository } from '../repositories/UserRepository';
 import { User } from '../types';
 import sql from '../config/database';
+import { ROLE_IDS, BCRYPT_SALT_ROUNDS, VALID_PLANTS, TIMEZONE, mapRoleName } from '../constants';
+
+/** Shared query to fetch user with role and provider details */
+const USER_DETAILS_QUERY = sql`
+	SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u.plant, u."createdAt", u."updatedAt"
+	FROM "User" u
+	JOIN "Role" r ON r.id = u."roleId"
+	LEFT JOIN "Provider" p ON p.id = u."providerId"
+`;
 
 export class UserService {
-	private mapRoleId(role: any): number | null {
-		if (typeof role === 'number') return role;
-		if (typeof role === 'string') {
-			const r = role.toUpperCase();
-			if (r === 'WWS') return 1;
-			if (r === 'SCM') return 2;
-			if (r === 'BODY') return 3;
-			if (r === 'CARRIER') return 4;
-			if (r === 'ADMIN') return 5;
-			if (r === 'VQA') return 6;
-			const asNum = Number(role);
-			if (!isNaN(asNum)) return asNum;
-		}
-		return null;
-	}
-
 	async createUser(data: {
 		email: string;
 		password: string;
@@ -34,26 +27,24 @@ export class UserService {
 			throw new Error('Missing required fields: email, password, name, roleId');
 		}
 
-		const finalRoleId = this.mapRoleId(roleId);
+		const finalRoleId = mapRoleName(roleId);
 		if (!finalRoleId) throw new Error('Invalid roleId');
 
-		// Validación: Si el rol es CARRIER (4), providerId es requerido
-		if (finalRoleId === 4 && !providerId) {
+		// Validación: Si el rol es CARRIER, providerId es requerido
+		if (finalRoleId === ROLE_IDS.CARRIER && !providerId) {
 			throw new Error('CARRIER role requires a providerId');
 		}
 
-		// Validación: Si plant está presente, debe ser A1 o A2
-		if (plant && !['A1', 'A2'].includes(plant)) {
-			throw new Error('Plant must be A1 or A2');
+		// Validación: Si plant está presente, debe ser válido
+		if (plant && !(VALID_PLANTS as readonly string[]).includes(plant)) {
+			throw new Error(`Plant must be ${VALID_PLANTS.join(' or ')}`);
 		}
 
-		// Encriptar contraseña
-		const saltRounds = 10;
-		const hashed = await bcrypt.hash(password, saltRounds);
+		const hashed = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
 		const result = await sql<[{ id: number; email: string; name: string; 'roleId': number; 'providerId': number | null; plant: string | null; 'createdAt': string; 'updatedAt': string }]>`
 			INSERT INTO "User" (email, password, name, "roleId", "providerId", plant, "createdAt", "updatedAt")
-			VALUES (${email}, ${hashed}, ${name}, ${finalRoleId}, ${providerId ?? null}, ${plant ?? null}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
+			VALUES (${email}, ${hashed}, ${name}, ${finalRoleId}, ${providerId ?? null}, ${plant ?? null}, NOW() AT TIME ZONE ${TIMEZONE}, NOW() AT TIME ZONE ${TIMEZONE})
 			RETURNING id, email, name, "roleId", "providerId", plant, "createdAt", "updatedAt"
 		`;
 
@@ -62,10 +53,7 @@ export class UserService {
 
 	async listUsers(): Promise<any[]> {
 		const rows = await sql<any[]>`
-			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u.plant, u."createdAt", u."updatedAt"
-			FROM "User" u
-			JOIN "Role" r ON r.id = u."roleId"
-			LEFT JOIN "Provider" p ON p.id = u."providerId"
+			${USER_DETAILS_QUERY}
 			ORDER BY u."createdAt" DESC
 		`;
 		return rows;
@@ -82,79 +70,40 @@ export class UserService {
 		if (!id) throw new Error('Missing id');
 
 		const { email, password, name, roleId, providerId, plant } = data;
-		const finalRoleId = roleId ? this.mapRoleId(roleId) : undefined;
+		const finalRoleId = roleId ? mapRoleName(roleId) : undefined;
 
-		// Validación: Si plant está presente, debe ser A1 o A2
-		if (plant !== undefined && plant !== null && !['A1', 'A2'].includes(plant)) {
-			throw new Error('Plant must be A1 or A2');
+		// Validación: Si plant está presente, debe ser válido
+		if (plant !== undefined && plant !== null && !(VALID_PLANTS as readonly string[]).includes(plant)) {
+			throw new Error(`Plant must be ${VALID_PLANTS.join(' or ')}`);
 		}
 
 		// Si se incluye password, hashearla
 		let hashed: string | null = null;
 		if (password) {
-			hashed = await bcrypt.hash(password, 10);
+			hashed = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 		}
 
-		const emailParam = email === undefined ? null : email;
-		const nameParam = name === undefined ? null : name;
-		const roleParam = finalRoleId === undefined ? null : finalRoleId;
+		// Build dynamic update — single query instead of 4 branches
+		const sets: string[] = [];
+		const values: any[] = [];
 
-		// Build dynamic update
-		if (providerId === undefined && plant === undefined) {
-			await sql`
-				UPDATE "User" SET
-					email = COALESCE(${emailParam}, email),
-					name = COALESCE(${nameParam}, name),
-					"roleId" = COALESCE(${roleParam}, "roleId"),
-					"updatedAt" = NOW()
-				WHERE id = ${id}
-			`;
-		} else if (plant !== undefined && providerId === undefined) {
-			await sql`
-				UPDATE "User" SET
-					email = COALESCE(${emailParam}, email),
-					name = COALESCE(${nameParam}, name),
-					"roleId" = COALESCE(${roleParam}, "roleId"),
-					plant = ${plant ?? null},
-					"updatedAt" = NOW()
-				WHERE id = ${id}
-			`;
-		} else if (plant === undefined && providerId !== undefined) {
-			// providerId explicitly provided (may be null)
-			await sql`
-				UPDATE "User" SET
-					email = COALESCE(${emailParam}, email),
-					name = COALESCE(${nameParam}, name),
-					"roleId" = COALESCE(${roleParam}, "roleId"),
-					"providerId" = ${providerId ?? null},
-					"updatedAt" = NOW()
-				WHERE id = ${id}
-			`;
-		} else {
-			// Both plant and providerId provided
-			await sql`
-				UPDATE "User" SET
-					email = COALESCE(${emailParam}, email),
-					name = COALESCE(${nameParam}, name),
-					"roleId" = COALESCE(${roleParam}, "roleId"),
-					"providerId" = ${providerId ?? null},
-					plant = ${plant ?? null},
-					"updatedAt" = NOW()
-				WHERE id = ${id}
-			`;
-		}
+		if (email !== undefined)    { sets.push(`email = $${sets.length + 2}`);         values.push(email); }
+		if (name !== undefined)     { sets.push(`name = $${sets.length + 2}`);          values.push(name); }
+		if (finalRoleId !== undefined) { sets.push(`"roleId" = $${sets.length + 2}`);   values.push(finalRoleId); }
+		if (providerId !== undefined) { sets.push(`"providerId" = $${sets.length + 2}`); values.push(providerId ?? null); }
+		if (plant !== undefined)    { sets.push(`plant = $${sets.length + 2}`);         values.push(plant ?? null); }
+		if (hashed)                 { sets.push(`password = $${sets.length + 2}`);      values.push(hashed); }
 
-		if (hashed) {
-			await sql`
-				UPDATE "User" SET password = ${hashed}, "updatedAt" = NOW() WHERE id = ${id}
-			`;
+		if (sets.length > 0) {
+			sets.push('"updatedAt" = NOW()');
+			await sql.unsafe(
+				`UPDATE "User" SET ${sets.join(', ')} WHERE id = $1`,
+				[id, ...values]
+			);
 		}
 
 		const rows = await sql<any[]>`
-			SELECT u.id, u.email, u.name, u."roleId", r.name as "roleName", u."providerId", p.name as "providerName", u.plant, u."createdAt", u."updatedAt"
-			FROM "User" u
-			JOIN "Role" r ON r.id = u."roleId"
-			LEFT JOIN "Provider" p ON p.id = u."providerId"
+			${USER_DETAILS_QUERY}
 			WHERE u.id = ${id}
 		`;
 		return rows[0];

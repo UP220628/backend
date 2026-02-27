@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { addUnitEventClient, removeUnitEventClient } from '../realtime/unitEventStream';
+import { env } from '../config/environment';
+import { SSE_KEEPALIVE_MS } from '../constants';
 
 const router = Router();
 
@@ -10,14 +12,9 @@ router.get('/units', (req: Request, res: Response) => {
     return res.status(401).json({ ok: false, error: 'Missing token' });
   }
 
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    return res.status(500).json({ ok: false, error: 'JWT_SECRET not configured on server' });
-  }
-
   let userPlant: string | undefined;
   try {
-    const payload = jwt.verify(token, jwtSecret) as any;
+    const payload = jwt.verify(token, env.jwtSecret) as any;
     // Extract plant from JWT for plant-aware SSE filtering
     userPlant = payload.plant;
   } catch (err: any) {
@@ -35,7 +32,7 @@ router.get('/units', (req: Request, res: Response) => {
 
   const keepAlive = setInterval(() => {
     res.write(':keep-alive\n\n');
-  }, 25000);
+  }, SSE_KEEPALIVE_MS);
 
   req.on('close', () => {
     clearInterval(keepAlive);

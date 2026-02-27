@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server } from 'http';
 import jwt from 'jsonwebtoken';
 import { WebSocket, WebSocketServer } from 'ws';
+import { env } from '../config/environment';
 
 type AuthedSocket = WebSocket & { userId?: number };
 
@@ -28,11 +29,7 @@ export const initNotificationHub = (server: Server) => {
       return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      socket.close(1011, 'Server missing JWT_SECRET');
-      return;
-    }
+    const jwtSecret = env.jwtSecret;
 
     try {
       const payload = jwt.verify(token, jwtSecret) as any;

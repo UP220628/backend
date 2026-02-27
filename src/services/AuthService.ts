@@ -4,6 +4,7 @@ import { UserRepository } from '../repositories/UserRepository';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 import { User } from '../types';
 import { env } from '../config/environment';
+import { BCRYPT_SALT_ROUNDS, MIN_PASSWORD_LENGTH } from '../constants';
 
 export interface LoginCredentials {
   email: string;
@@ -41,9 +42,7 @@ export class AuthService {
     this.jwtSecret = env.jwtSecret;
     this.jwtExpiresIn = env.jwtExpiresIn;
     this.refreshTokenExpiresIn = env.refreshTokenExpiresIn;
-    if (!this.jwtSecret) {
-      throw new Error('JWT_SECRET environment variable is required');
-    }
+    // env.jwtSecret already validates via required() — no redundant check needed
   }
 
   // Generar tokens
@@ -182,8 +181,8 @@ export class AuthService {
   }
 
   async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
-    if (!newPassword || newPassword.length < 8) {
-      throw new Error('La nueva contraseña debe tener al menos 8 caracteres');
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`);
     }
 
     const user = await this.userRepository.findById(userId);
@@ -201,7 +200,7 @@ export class AuthService {
       throw new Error('La nueva contraseña no puede ser igual a la anterior');
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
     await this.userRepository.updatePassword(userId, hashed);
 
     // Revocar todos los refresh tokens al cambiar contraseña

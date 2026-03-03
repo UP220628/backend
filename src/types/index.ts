@@ -27,7 +27,7 @@ export interface Provider {
 
 export interface UnitStatus {
   id: number;
-  name: 'SENT' | 'DELIVERED' | 'RECEIVED' | 'IN_REPAIR' | 'RELEASED' | 'WWS_RELEASED' | 'ACCEPTED' | 'UNAVAILABLE' | 'VQA_PENDING';
+  name: 'REPORTED' | 'SENT' | 'DELIVERED' | 'RECEIVED' | 'IN_REPAIR' | 'RELEASED' | 'WWS_RELEASED' | 'ACCEPTED' | 'UNAVAILABLE' | 'VQA_PENDING' | 'REJECTED' | 'ARCHIVED';
 }
 
 export interface DefectGrade {
@@ -60,6 +60,9 @@ export interface Unit {
   estimatedRepairHours?: number;
   estimatedCompletionDate?: Date;
   vqaComment?: string | null;
+  rejectionNote?: string | null;
+  archivedAt?: Date | null;
+  archivedById?: number | null;
   // Priority fields
   priorityNote?: string;
   priorityRank?: number;
@@ -99,7 +102,7 @@ export interface Notification {
   id: number;
   userId: number;
   unitId: number;
-  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
+  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
   message: string | null;
   isRead: boolean;
   createdAt: Date;
@@ -154,7 +157,7 @@ export interface CreateRepairCatalogDTO {
 export interface CreateNotificationDTO {
   userId: number;
   unitId: number;
-  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
+  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
   message: string;
 }
 

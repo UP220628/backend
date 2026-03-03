@@ -87,6 +87,18 @@ export class NotificationService {
       : `Unidad enviada a validación VQA. VIN: ${unit.vin}`;
     return this.createForRoleIds([ROLE_IDS.VQA, ROLE_IDS.SCM], unit.id, 'VQA_PENDING', msg);
   }
+
+  async notifyUnitRejected(unit: { id: number; vin: string }, note?: string | null) {
+    const msg = note
+      ? `Unidad rechazada por Carrier. VIN: ${unit.vin} — Motivo: ${note}`
+      : `Unidad rechazada por Carrier. VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM, ROLE_IDS.BODY], unit.id, 'UNIT_REJECTED', msg);
+  }
+
+  async notifyUnitArchived(unit: { id: number; vin: string }) {
+    const message = `Unidad archivada (no disponible). VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.SCM, ROLE_IDS.WWS], unit.id, 'UNIT_ARCHIVED', message);
+  }
 }
 
 export const notificationService = new NotificationService();

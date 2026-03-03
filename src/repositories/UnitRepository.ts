@@ -220,12 +220,13 @@ export class UnitRepository {
 		}
 
 		// Si cambia a IN_REPAIR o RELEASED, limpiar priorityRank ya que sale de la cola RECEIVED
-		if (newStatusName === 'IN_REPAIR' || newStatusName === 'RELEASED' || newStatusName === 'WWS_RELEASED' || newStatusName === 'ACCEPTED') {
+		if (newStatusName === 'IN_REPAIR' || newStatusName === 'RELEASED' || newStatusName === 'WWS_RELEASED' || newStatusName === 'ACCEPTED' || newStatusName === 'REJECTED') {
 			updates.priorityRank = null;
 		}
 
 		// Marcar todos los defectos activos como resueltos cuando BODY libera la unidad
-		if (newStatusName === 'RELEASED') {
+		// o cuando VQA aprueba (la unidad salta Body y va directo a aceptación)
+		if (newStatusName === 'RELEASED' || newStatusName === 'WWS_RELEASED') {
 			await trx`
 				UPDATE "UnitDefect"
 				SET "isResolved" = ${true}, "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
@@ -235,12 +236,27 @@ export class UnitRepository {
 			`;
 		}
 
+		// Cuando Carrier rechaza la unidad, reabrir defectos para que Body repare de nuevo
+		if (newStatusName === 'REJECTED') {
+			await trx`
+				UPDATE "UnitDefect"
+				SET "isResolved" = ${false}, "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+				WHERE "unitId" = ${unitId}
+				  AND "isActive" = ${true}
+			`;
+		}
+
 		if (isAvailableToday !== undefined) {
 			updates.isAvailableToday = isAvailableToday;
 		}
 
 		if (vqaComment !== undefined) {
 			updates.vqaComment = vqaComment;
+		}
+
+		// Store rejection note when Carrier rejects
+		if (newStatusName === 'REJECTED' && note) {
+			updates.rejectionNote = note;
 		}
 
 		await trx`
@@ -644,6 +660,67 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 			INSERT INTO "UnitEvent" ("unitId", "eventType", "eventData", "performedById", "createdAt")
 			VALUES (${unitId}, 'REPAIR_TIME_UPDATED', ${sql.json(eventData)}, ${updatedById}, NOW() AT TIME ZONE 'America/Mexico_City')
 		`;
+	}
+
+	// Archive UNAVAILABLE units with SCM decisions (soft delete)
+	async archiveUnit(unitId: number, archivedById: number): Promise<void> {
+		await sql.begin(async (trx: any) => {
+			const statusResult = await trx`
+				SELECT id FROM "UnitStatus" WHERE name = 'ARCHIVED'
+			`;
+			const archivedStatusId = (statusResult as Array<{ id: number }>)[0]?.id;
+			if (!archivedStatusId) throw new Error('ARCHIVED status not found');
+
+			const unitResult = await trx`
+				SELECT "statusId" FROM "Unit" WHERE id = ${unitId}
+			`;
+			const previousStatusId = (unitResult as Array<{ statusId: number }>)[0]?.statusId;
+
+			await trx`
+				UPDATE "Unit"
+				SET 
+					"statusId" = ${archivedStatusId},
+					"archivedAt" = NOW() AT TIME ZONE 'America/Mexico_City',
+					"archivedById" = ${archivedById},
+					"priorityRank" = NULL,
+					"updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+				WHERE id = ${unitId}
+			`;
+
+			// Crear evento
+			const prevStatus = previousStatusId ? await trx`SELECT name FROM "UnitStatus" WHERE id = ${previousStatusId}` : null;
+			const eventData = {
+				previousStatus: prevStatus?.[0]?.name || null,
+				newStatus: 'ARCHIVED',
+				previousStatusId: previousStatusId,
+				newStatusId: archivedStatusId,
+				note: 'Unit archived after SCM decision'
+			};
+
+			await trx`
+				INSERT INTO "UnitEvent" ("unitId", "eventType", "eventData", "performedById", "createdAt")
+				VALUES (${unitId}, 'STATUS_CHANGE', ${sql.json(eventData)}, ${archivedById}, NOW() AT TIME ZONE 'America/Mexico_City')
+			`;
+		});
+	}
+
+	// Get UNAVAILABLE units eligible for archiving (have SCM decision)
+	async getArchivableUnits(plant?: string): Promise<any[]> {
+		const result = await sql<any[]>`
+			SELECT 
+				u.id, u.vin, u.market, u.lane, u."scmDecision", u."scmDecisionNote", 
+				u."scmDecisionAt", u."isAvailableToday",
+				s.name as "statusName",
+				usr.name as "registeredBy"
+			FROM "Unit" u
+			JOIN "UnitStatus" s ON s.id = u."statusId"
+			LEFT JOIN "User" usr ON usr.id = u."registeredById"
+			WHERE s.name = 'UNAVAILABLE'
+			AND u."scmDecision" IS NOT NULL
+			${plant ? sql`AND u.plant = ${plant}` : sql``}
+			ORDER BY u."scmDecisionAt" ASC NULLS LAST
+		`;
+		return result;
 	}
 }
 

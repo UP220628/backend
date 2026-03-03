@@ -59,6 +59,7 @@ export class UnitService {
 			WWS_RELEASED: (u) => notificationService.notifyUnitWwsReleased(u),
 			ACCEPTED: (u) => notificationService.notifyUnitAccepted(u),
 			VQA_PENDING: (u) => notificationService.notifyVqaPending(u, vqaComment),
+			REJECTED: (u) => notificationService.notifyUnitRejected(u, note),
 		};
 		if (unit && notifiers[newStatus]) {
 			await notifiers[newStatus]({ id: unit.id, vin: unit.vin });
@@ -145,6 +146,19 @@ export class UnitService {
 
 	async getUnitWithDefects(id: number) {
 		return unitRepository.findByIdWithDefects(id);
+	}
+
+	async archiveUnit(unitId: number, archivedById: number) {
+		await unitRepository.archiveUnit(unitId, archivedById);
+		const unit = await this.emitEvent(unitId, 'STATUS_CHANGED');
+		if (unit) {
+			await notificationService.notifyUnitArchived({ id: unit.id, vin: unit.vin });
+		}
+		return unit;
+	}
+
+	async getArchivableUnits(plant?: string) {
+		return unitRepository.getArchivableUnits(plant);
 	}
 }
 

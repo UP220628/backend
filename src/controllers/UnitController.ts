@@ -185,3 +185,20 @@ export const getUnitById = asyncHandler(async (req: Request, res: Response) => {
 	}
 	res.json({ ok: true, data: unit });
 });
+
+export const archiveUnit = asyncHandler(async (req: Request, res: Response) => {
+	const id = Number(req.params.id);
+	const { archivedById } = req.body || {};
+	if (!id || !archivedById) {
+		return res.status(400).json({ ok: false, error: 'Missing id or archivedById' });
+	}
+	const unit = await unitService.archiveUnit(id, Number(archivedById));
+	res.json({ ok: true, data: unit });
+});
+
+export const getArchivableUnits = asyncHandler(async (req: Request, res: Response) => {
+	const user = res.locals.user;
+	const plant = getUserPlantFilter(user);
+	const data = await unitService.getArchivableUnits(plant);
+	res.json({ ok: true, data });
+});

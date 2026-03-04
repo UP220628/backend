@@ -5,7 +5,8 @@ export const ROLE_IDS = {
   BODY: 3,
   CARRIER: 4,
   ADMIN: 5,
-  VQA: 6,
+  WTY: 6,
+  SCM_QUALITY: 7,
 } as const;
 
 export type RoleId = (typeof ROLE_IDS)[keyof typeof ROLE_IDS];

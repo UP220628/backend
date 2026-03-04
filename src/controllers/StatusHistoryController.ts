@@ -33,6 +33,23 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleString('es-MX', { timeZone: TIMEZONE });
 };
 
+/** Mapeo de estados en inglés a español para las notas */
+const statusToSpanish: Record<string, string> = {
+  REPORTED: 'Reportada',
+  SENT: 'Nivelación WWS',
+  DELIVERED: 'Entregada a Body',
+  RECEIVED: 'Recibida en Body',
+  IN_REPAIR: 'En Reparación',
+  RELEASED: 'Liberada Body',
+  WTY_PENDING: 'Validación WTY',
+  WTY_RELEASED: 'Liberada WTY',
+  WWS_RELEASED: 'Liberada WWS',
+  ACCEPTED: 'Aceptada Carrier',
+  REJECTED: 'Rechazada Carrier',
+  ARCHIVED: 'Archivada',
+  UNAVAILABLE: 'No disponible',
+};
+
 export const getLogs = asyncHandler(async (req: Request, res: Response) => {
   const user = res.locals.user;
   const filters = buildLogFilters(req, user);
@@ -78,25 +95,28 @@ export const exportLogsToExcel = asyncHandler(async (req: Request, res: Response
   workbook.creator = EXCEL_STYLES.APP_NAME;
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet('Historial de Unidades', {
+  const sheet = workbook.addWorksheet('Histórico de Unidades', {
     views: [{ state: 'frozen', ySplit: 1 }],
   });
 
   // ─── Definición de columnas ────────────────────────────────────────────
   sheet.columns = [
-    { header: 'VIN',            key: 'vin',          width: 20 },
-    { header: 'Mercado',        key: 'market',        width: 14 },
-    { header: 'Carril',         key: 'lane',          width: 12 },
-    { header: 'Registrado por', key: 'registeredBy',  width: 22 },
-    { header: 'Reportado',      key: 'reported',      width: 22 },
-    { header: 'Nivelación',     key: 'sent',          width: 22 },
-    { header: 'Entregada',      key: 'delivered',     width: 22 },
-    { header: 'Recibido',       key: 'received',      width: 22 },
-    { header: 'Aceptado',       key: 'accepted',      width: 22 },
-    { header: 'En Reparación',  key: 'inRepair',      width: 22 },
-    { header: 'Liberado Body',  key: 'released',      width: 22 },
-    { header: 'Liberado WWS',   key: 'wwsReleased',   width: 22 },
-    { header: 'Notas',          key: 'notes',         width: 55 },
+    { header: 'VIN',                             key: 'vin',          width: 20 },
+    { header: 'Mercado',                         key: 'market',        width: 14 },
+    { header: 'Carril',                          key: 'lane',          width: 12 },
+    { header: 'Reportada (Carrier/WWS)',         key: 'reported',      width: 24 },
+    { header: 'Nivelación (WWS)',                key: 'sent',          width: 24 },
+    { header: 'Entregada (WWS)',                 key: 'delivered',     width: 24 },
+    { header: 'Recibida (Body)',                 key: 'received',      width: 24 },
+    { header: 'En Reparación (Body)',            key: 'inRepair',      width: 24 },
+    { header: 'Liberada Body (Body)',            key: 'released',      width: 24 },
+    { header: 'Validación WTY (WTY/SCM Quality)', key: 'wtyPending',    width: 30 },
+    { header: 'Liberada WTY (WTY/SCM Quality)',  key: 'wtyReleased',   width: 30 },
+    { header: 'Liberada WWS (WWS)',              key: 'wwsReleased',   width: 24 },
+    { header: 'Aceptada (Carrier)',              key: 'accepted',      width: 24 },
+    { header: 'Rechazada (Carrier)',             key: 'rejected',      width: 24 },
+    { header: 'Registrado por',                  key: 'registeredBy',  width: 22 },
+    { header: 'Notas',                           key: 'notes',         width: 55 },
   ];
 
   // ─── Estilo de cabecera ────────────────────────────────────────────────
@@ -125,7 +145,8 @@ export const exportLogsToExcel = asyncHandler(async (req: Request, res: Response
     const notesText = unit.notes.length > 0
       ? unit.notes.map((n: any) => {
           const d = new Date(n.timestamp);
-          return `[${n.status}] ${d.toLocaleString('es-MX', { timeZone: TIMEZONE })}: ${n.note}`;
+          const statusLabel = statusToSpanish[n.status] || n.status;
+          return `[${statusLabel}] ${d.toLocaleString('es-MX', { timeZone: TIMEZONE })}: ${n.note}`;
         }).join('\n')
       : '';
 
@@ -138,10 +159,13 @@ export const exportLogsToExcel = asyncHandler(async (req: Request, res: Response
       sent:         formatDate(unit.states.SENT),
       delivered:    formatDate(unit.states.DELIVERED),
       received:     formatDate(unit.states.RECEIVED),
-      accepted:     formatDate(unit.states.ACCEPTED),
       inRepair:     formatDate(unit.states.IN_REPAIR),
       released:     formatDate(unit.states.RELEASED),
+      wtyPending:   formatDate(unit.states.WTY_PENDING),
+      wtyReleased:  formatDate(unit.states.WTY_RELEASED),
       wwsReleased:  formatDate(unit.states.WWS_RELEASED),
+      accepted:     formatDate(unit.states.ACCEPTED),
+      rejected:     formatDate(unit.states.REJECTED),
       notes:        notesText,
     });
 

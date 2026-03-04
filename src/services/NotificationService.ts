@@ -81,11 +81,16 @@ export class NotificationService {
     return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM, ROLE_IDS.BODY], unit.id, 'UNIT_ACCEPTED', message);
   }
 
-  async notifyVqaPending(unit: { id: number; vin: string }, comment?: string | null) {
+  async notifyWtyPending(unit: { id: number; vin: string }, comment?: string | null) {
     const msg = comment
-      ? `Unidad enviada a validación VQA. VIN: ${unit.vin} — Comentario WWS: ${comment}`
-      : `Unidad enviada a validación VQA. VIN: ${unit.vin}`;
-    return this.createForRoleIds([ROLE_IDS.VQA, ROLE_IDS.SCM], unit.id, 'VQA_PENDING', msg);
+      ? `Unidad enviada a validación WTY. VIN: ${unit.vin} — Comentario WWS: ${comment}`
+      : `Unidad enviada a validación WTY. VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.WTY, ROLE_IDS.SCM_QUALITY, ROLE_IDS.SCM], unit.id, 'WTY_PENDING', msg);
+  }
+
+  async notifyWtyReleased(unit: { id: number; vin: string }) {
+    const message = `Unidad aprobada por WTY y lista para liberación WWS. VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM], unit.id, 'WTY_RELEASED', message);
   }
 
   async notifyUnitRejected(unit: { id: number; vin: string }, note?: string | null) {
@@ -93,6 +98,13 @@ export class NotificationService {
       ? `Unidad rechazada por Carrier. VIN: ${unit.vin} — Motivo: ${note}`
       : `Unidad rechazada por Carrier. VIN: ${unit.vin}`;
     return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM, ROLE_IDS.BODY], unit.id, 'UNIT_REJECTED', msg);
+  }
+
+  async notifyUnitReturnedToSent(unit: { id: number; vin: string }, rejectionNote?: string | null) {
+    const msg = rejectionNote
+      ? `Unidad rechazada regresada a Nivelación WWS. VIN: ${unit.vin} — Motivo: ${rejectionNote}`
+      : `Unidad rechazada regresada a Nivelación WWS para re-entrega. VIN: ${unit.vin}`;
+    return this.createForRoleIds([ROLE_IDS.WWS, ROLE_IDS.SCM], unit.id, 'UNIT_RETURNED_TO_SENT', msg);
   }
 
   async notifyUnitArchived(unit: { id: number; vin: string }) {

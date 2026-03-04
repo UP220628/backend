@@ -14,7 +14,7 @@ export interface User {
 
 export interface Role {
   id: number;
-  name: 'WWS' | 'SCM' | 'BODY' | 'CARRIER';
+  name: 'WWS' | 'SCM' | 'BODY' | 'CARRIER' | 'ADMIN' | 'WTY' | 'SCM_QUALITY';
 }
 
 export interface Provider {
@@ -27,7 +27,7 @@ export interface Provider {
 
 export interface UnitStatus {
   id: number;
-  name: 'REPORTED' | 'SENT' | 'DELIVERED' | 'RECEIVED' | 'IN_REPAIR' | 'RELEASED' | 'WWS_RELEASED' | 'ACCEPTED' | 'UNAVAILABLE' | 'VQA_PENDING' | 'REJECTED' | 'ARCHIVED';
+  name: 'REPORTED' | 'SENT' | 'DELIVERED' | 'RECEIVED' | 'IN_REPAIR' | 'RELEASED' | 'WTY_PENDING' | 'WTY_RELEASED' | 'WWS_RELEASED' | 'ACCEPTED' | 'REJECTED' | 'UNAVAILABLE' | 'ARCHIVED';
 }
 
 export interface DefectGrade {
@@ -59,7 +59,7 @@ export interface Unit {
   plant?: Plant;
   estimatedRepairHours?: number;
   estimatedCompletionDate?: Date;
-  vqaComment?: string | null;
+  wtyComment?: string | null;
   rejectionNote?: string | null;
   archivedAt?: Date | null;
   archivedById?: number | null;
@@ -102,7 +102,7 @@ export interface Notification {
   id: number;
   userId: number;
   unitId: number;
-  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
+  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'WTY_PENDING' | 'WTY_RELEASED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_RETURNED_TO_SENT' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED';
   message: string | null;
   isRead: boolean;
   createdAt: Date;
@@ -157,7 +157,7 @@ export interface CreateRepairCatalogDTO {
 export interface CreateNotificationDTO {
   userId: number;
   unitId: number;
-  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED' | 'VQA_PENDING';
+  type: 'UNIT_REPORTED' | 'UNIT_RELEASED' | 'UNIT_DELIVERED' | 'WTY_PENDING' | 'WTY_RELEASED' | 'UNIT_WWS_RELEASED' | 'UNIT_ACCEPTED' | 'UNIT_REJECTED' | 'UNIT_RETURNED_TO_SENT' | 'UNIT_ARCHIVED' | 'STATUS_CHANGED' | 'DEFECT_ADDED' | 'REPAIR_ESTIMATED';
   message: string;
 }
 

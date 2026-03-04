@@ -60,11 +60,11 @@ export const createUnit = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateUnitStatus = asyncHandler(async (req: Request, res: Response) => {
 	const id = Number(req.params.id);
-	const { newStatus, changedById, estimatedRepairHours, isAvailableToday, note, vqaComment } = req.body || {};
+	const { newStatus, changedById, estimatedRepairHours, isAvailableToday, note, wtyComment } = req.body || {};
 	if (!id || !newStatus || !changedById) {
 		return res.status(400).json({ ok: false, error: 'Missing id, newStatus or changedById' });
 	}
-	const unit = await unitService.updateUnitStatus(id, newStatus, Number(changedById), estimatedRepairHours, isAvailableToday, note, vqaComment);
+	const unit = await unitService.updateUnitStatus(id, newStatus, Number(changedById), estimatedRepairHours, isAvailableToday, note, wtyComment);
 	res.json({ ok: true, data: unit });
 });
 

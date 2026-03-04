@@ -48,21 +48,34 @@ export class UnitService {
 		return { id, ...payload } as any;
 	}
 
-	async updateUnitStatus(id: number, newStatus: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string, vqaComment?: string) {
-		await unitRepository.updateStatus(id, newStatus, changedById, estimatedRepairHours, isAvailableToday, note, vqaComment);
+	async updateUnitStatus(id: number, newStatus: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string, wtyComment?: string) {
+		await unitRepository.updateStatus(id, newStatus, changedById, estimatedRepairHours, isAvailableToday, note, wtyComment);
 		const unit = await this.emitEvent(id, 'STATUS_CHANGED');
 
 		// Status-specific notifications (map-driven instead of if-chain)
 		const notifiers: Record<string, (u: { id: number; vin: string }) => Promise<any>> = {
 			RELEASED: (u) => notificationService.notifyUnitReleased(u),
 			DELIVERED: (u) => notificationService.notifyUnitDelivered(u),
+			WTY_PENDING: (u) => notificationService.notifyWtyPending(u, wtyComment),
+			WTY_RELEASED: (u) => notificationService.notifyWtyReleased(u),
 			WWS_RELEASED: (u) => notificationService.notifyUnitWwsReleased(u),
 			ACCEPTED: (u) => notificationService.notifyUnitAccepted(u),
-			VQA_PENDING: (u) => notificationService.notifyVqaPending(u, vqaComment),
 			REJECTED: (u) => notificationService.notifyUnitRejected(u, note),
 		};
 		if (unit && notifiers[newStatus]) {
 			await notifiers[newStatus]({ id: unit.id, vin: unit.vin });
+		}
+
+		// Auto-return rejected units to SENT (Nivelación WWS) for re-delivery
+		if (newStatus === 'REJECTED') {
+			// Automatically transition back to SENT, preserving the REJECTED event in history
+			await unitRepository.updateStatus(id, 'SENT', changedById);
+			const updatedUnit = await this.emitEvent(id, 'STATUS_CHANGED');
+			if (updatedUnit) {
+				// Notify WWS that a rejected unit needs re-leveling
+				await notificationService.notifyUnitReturnedToSent({ id: updatedUnit.id, vin: updatedUnit.vin }, note);
+			}
+			return updatedUnit;
 		}
 
 		return unit;

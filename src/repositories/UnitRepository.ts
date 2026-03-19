@@ -205,6 +205,7 @@ export class UnitRepository {
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				WHERE s.name = 'IN_REPAIR' 
 				AND u."estimatedRepairHours" IS NOT NULL
+				AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
 				AND u.id != ${unitId}
 				ORDER BY u."estimatedCompletionDate" DESC NULLS LAST
 				LIMIT 1
@@ -567,6 +568,7 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 			LEFT JOIN "Provider" p ON p.id = u."providerId"
 			WHERE s.name = 'IN_REPAIR' 
 			AND u."estimatedRepairHours" IS NOT NULL
+			AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
 			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 			${plant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
@@ -617,6 +619,7 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				WHERE s.name = 'IN_REPAIR' 
 				AND u."estimatedRepairHours" IS NOT NULL
+				AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
 				AND u.id != ${unitId}
 				ORDER BY u."estimatedCompletionDate" ASC NULLS LAST
 			`;

@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import https from 'https';
 import cors from 'cors';
+import { randomUUID } from 'crypto';
 import { env } from './config/environment';
 import healthRouter from './routes/health';
 import unitsRouter from './routes/units';
@@ -18,6 +19,24 @@ import { initNotificationHub } from './realtime/notificationHub';
 
 const app = express();
 
+function sanitizeErrorDetail(value: unknown): string {
+	let message = String(value ?? '');
+	const replacements: Array<[RegExp, string]> = [
+		[/Bearer\s+[A-Za-z0-9\-._~+/]+=*/g, 'Bearer [REDACTED]'],
+		[/(authorization\s*[:=]\s*)([^,\s]+)/gi, '$1[REDACTED]'],
+		[/(password\s*[:=]\s*)([^,\s]+)/gi, '$1[REDACTED]'],
+		[/(token\s*[:=]\s*)([^,\s]+)/gi, '$1[REDACTED]'],
+		[/(jwt_secret\s*[:=]\s*)([^,\s]+)/gi, '$1[REDACTED]'],
+		[/(database_url\s*[:=]\s*)([^,\s]+)/gi, '$1[REDACTED]'],
+	];
+
+	for (const [pattern, replacement] of replacements) {
+		message = message.replace(pattern, replacement);
+	}
+
+	return message;
+}
+
 // CORS restringido a orígenes autorizados
 const corsOptions = {
   origin: env.corsOrigin.split(',').map(o => o.trim()),
@@ -30,6 +49,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+app.use((req, res, next) => {
+	const headerRequestId = req.header('x-request-id');
+	const requestId = headerRequestId && headerRequestId.trim() ? headerRequestId : randomUUID();
+	(res.locals as any).requestId = requestId;
+	res.setHeader('X-Request-Id', requestId);
+	next();
+});
 
 // Security headers para HTTPS
 app.use((req, res, next) => {
@@ -63,6 +90,24 @@ app.use('/events', eventsRouter);
 
 app.get('/', (_req, res) => {
 	res.json({ ok: true, service: 'body-app-backend' });
+});
+
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+	const requestId = (res.locals as any)?.requestId;
+	const detail = sanitizeErrorDetail(err);
+	console.error(
+		'Unhandled error requestId=%s method=%s path=%s detail=%s',
+		requestId,
+		req.method,
+		req.originalUrl,
+		detail
+	);
+
+	return res.status(500).json({
+		ok: false,
+		error: 'Internal server error',
+		requestId,
+	});
 });
 
 if (require.main === module) {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createUnit, listUnits, updateUnitStatus, updateUnitPriority, updatePriorityOrder, addDefectToUnit, updateDefectGrade, getDefectStats, getTodayUnits, setScmDecision, getStatusStats, updateEstimatedRepairTime, getUnitsInRepair, getUnitById, archiveUnit, getArchivableUnits } from '../controllers/UnitController';
-import { validateOverridePermission } from '../middleware/roleGuard';
+import { createUnit, listUnits, updateUnitStatus, updateUnitPriority, updatePriorityOrder, addDefectToUnit, updateDefectGrade, getDefectStats, getTodayUnits, setScmDecision, getStatusStats, updateEstimatedRepairTime, getUnitsInRepair, getUnitById, archiveUnit, getArchivableUnits, decideUnitDeletionRequest, listUnitDeletionRequests, requestUnitDeletion } from '../controllers';
+import { requireAnyRole, requireRole, validateOverridePermission } from '../middleware/roleGuard';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -11,8 +11,11 @@ router.get('/stats/by-status', getStatusStats);
 router.get('/in-repair', getUnitsInRepair);
 router.get('/today', requireAuth, getTodayUnits);
 router.get('/archivable', requireAuth, getArchivableUnits);
+router.get('/deletion-requests', requireAuth, requireRole('SCM'), listUnitDeletionRequests);
+router.put('/deletion-requests/:requestId/decision', requireAuth, requireRole('SCM'), decideUnitDeletionRequest);
 router.get('/:id', requireAuth, getUnitById);
 router.post('/', createUnit);
+router.post('/:id/deletion-requests', requireAuth, requireAnyRole(['CARRIER', 'WWS']), requestUnitDeletion);
 router.put('/:id/status', updateUnitStatus);
 router.put('/:id/priority', updateUnitPriority);
 router.put('/:id/estimated-time', updateEstimatedRepairTime);

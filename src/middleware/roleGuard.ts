@@ -28,3 +28,12 @@ export function requireRole(roleName: string) {
 	};
 }
 
+export function requireAnyRole(roleNames: string[]) {
+	const normalized = roleNames.map(name => name.toUpperCase());
+	return (req: Request, res: Response, next: NextFunction) => {
+		const role = resolveUserRole(req, res)?.toUpperCase();
+		if (role && normalized.includes(role)) return next();
+		return res.status(403).json({ ok: false, error: `Requires one of roles: ${roleNames.join(', ')}` });
+	};
+}
+

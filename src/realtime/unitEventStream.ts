@@ -1,6 +1,15 @@
 import type { Response } from 'express';
 
-export type UnitEventType = 'UNIT_REPORTED' | 'STATUS_CHANGED' | 'DEFECT_UPDATED' | 'PRIORITY_UPDATED' | 'SCM_DECISION' | 'NOTE_ADDED' | 'REPAIR_TIME_UPDATED';
+export type UnitEventType =
+  | 'UNIT_REPORTED'
+  | 'STATUS_CHANGED'
+  | 'DEFECT_UPDATED'
+  | 'PRIORITY_UPDATED'
+  | 'SCM_DECISION'
+  | 'NOTE_ADDED'
+  | 'REPAIR_TIME_UPDATED'
+  | 'UNIT_DELETION_REQUESTED'
+  | 'UNIT_DELETION_DECIDED';
 
 type UnitEventPayload = {
   unitId: number;

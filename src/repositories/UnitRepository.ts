@@ -471,40 +471,108 @@ export class UnitRepository {
 	}
 
 	async getTodayUnits(providerId?: number, plant?: string): Promise<any[]> {
-		const result = await sql<any[]>`
-			SELECT
-				u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
-				u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
-				u."estimatedCompletionDate",
-				u."priorityNote", u."priorityRank",
-				u."scmDecision", u."scmDecisionNote", 
-				'' || TO_CHAR(u."scmDecisionAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "scmDecisionAt", 
-				u."scmDecisionById",
-				'' || TO_CHAR(u."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "createdAt", 
-				'' || TO_CHAR(u."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "updatedAt",
-				'' || TO_CHAR(last_status."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "statusUpdatedAt",
-				s.name as "statusName",
-				usr.name as "registeredBy",
-				usr."providerId" as "registeredByProviderId",
-				scm.name as "scmDecidedBy"
-			FROM "Unit" u
-			JOIN "UnitStatus" s ON s.id = u."statusId"
-			LEFT JOIN "User" usr ON usr.id = u."registeredById"
-			LEFT JOIN "User" scm ON scm.id = u."scmDecisionById"
-			LEFT JOIN LATERAL (
-				SELECT "createdAt"
-				FROM "UnitEvent"
-				WHERE "unitId" = u.id AND "eventType" = 'STATUS_CHANGE'
-				ORDER BY "createdAt" DESC
-				LIMIT 1
-			) last_status ON TRUE
-			WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
-			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
-			${plant ? sql`AND u.plant = ${plant}` : sql``}
-			ORDER BY u."createdAt" DESC
-		`;
-		
-		return result;
+		try {
+			const result = await sql<any[]>`
+				SELECT
+					u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+					u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
+					u."estimatedCompletionDate",
+					u."priorityNote", u."priorityRank",
+					u."scmDecision", u."scmDecisionNote", 
+					'' || TO_CHAR(u."scmDecisionAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "scmDecisionAt", 
+					u."scmDecisionById",
+					dr.id as "deletionRequestId",
+					dr.status as "deletionRequestStatus",
+					dr.reason as "deletionRequestReason",
+					dr."decisionNote" as "deletionRequestDecisionNote",
+					'' || TO_CHAR(dr."requestedAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "deletionRequestedAt",
+					'' || TO_CHAR(dr."decidedAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "deletionDecidedAt",
+					req_usr.name as "deletionRequestedBy",
+					dec_usr.name as "deletionDecidedBy",
+					'' || TO_CHAR(u."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "createdAt", 
+					'' || TO_CHAR(u."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "updatedAt",
+					'' || TO_CHAR(last_status."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "statusUpdatedAt",
+					s.name as "statusName",
+					usr.name as "registeredBy",
+					usr."providerId" as "registeredByProviderId",
+					scm.name as "scmDecidedBy"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				LEFT JOIN "User" usr ON usr.id = u."registeredById"
+				LEFT JOIN "User" scm ON scm.id = u."scmDecisionById"
+				LEFT JOIN LATERAL (
+					SELECT id, status, reason, "decisionNote", "requestedAt", "decidedAt", "requestedById", "decidedById"
+					FROM "UnitDeletionRequest"
+					WHERE "unitId" = u.id
+					ORDER BY "requestedAt" DESC
+					LIMIT 1
+				) dr ON TRUE
+				LEFT JOIN "User" req_usr ON req_usr.id = dr."requestedById"
+				LEFT JOIN "User" dec_usr ON dec_usr.id = dr."decidedById"
+				LEFT JOIN LATERAL (
+					SELECT "createdAt"
+					FROM "UnitEvent"
+					WHERE "unitId" = u.id AND "eventType" = 'STATUS_CHANGE'
+					ORDER BY "createdAt" DESC
+					LIMIT 1
+				) last_status ON TRUE
+				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
+				${plant ? sql`AND u.plant = ${plant}` : sql``}
+				ORDER BY u."createdAt" DESC
+			`;
+
+			return result;
+		} catch (err: any) {
+			const missingDeletionRequestTable =
+				err?.code === '42P01' && String(err?.message ?? '').includes('UnitDeletionRequest');
+
+			if (!missingDeletionRequestTable) {
+				throw err;
+			}
+
+			// Backward-compatible fallback when DB migration for UnitDeletionRequest has not been applied yet.
+			return sql<any[]>`
+				SELECT
+					u.id, u.vin, u.market, u.lane, u."statusId", u."providerId",
+					u."isAvailableToday", u."registeredById", u."estimatedRepairHours",
+					u."estimatedCompletionDate",
+					u."priorityNote", u."priorityRank",
+					u."scmDecision", u."scmDecisionNote",
+					'' || TO_CHAR(u."scmDecisionAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "scmDecisionAt",
+					u."scmDecisionById",
+					NULL::INT as "deletionRequestId",
+					NULL::VARCHAR as "deletionRequestStatus",
+					NULL::VARCHAR as "deletionRequestReason",
+					NULL::VARCHAR as "deletionRequestDecisionNote",
+					NULL::VARCHAR as "deletionRequestedAt",
+					NULL::VARCHAR as "deletionDecidedAt",
+					NULL::VARCHAR as "deletionRequestedBy",
+					NULL::VARCHAR as "deletionDecidedBy",
+					'' || TO_CHAR(u."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "createdAt",
+					'' || TO_CHAR(u."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "updatedAt",
+					'' || TO_CHAR(last_status."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' as "statusUpdatedAt",
+					s.name as "statusName",
+					usr.name as "registeredBy",
+					usr."providerId" as "registeredByProviderId",
+					scm.name as "scmDecidedBy"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				LEFT JOIN "User" usr ON usr.id = u."registeredById"
+				LEFT JOIN "User" scm ON scm.id = u."scmDecisionById"
+				LEFT JOIN LATERAL (
+					SELECT "createdAt"
+					FROM "UnitEvent"
+					WHERE "unitId" = u.id AND "eventType" = 'STATUS_CHANGE'
+					ORDER BY "createdAt" DESC
+					LIMIT 1
+				) last_status ON TRUE
+				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
+				${plant ? sql`AND u.plant = ${plant}` : sql``}
+				ORDER BY u."createdAt" DESC
+			`;
+		}
 	}
 
 	async setScmDecision(unitId: number, decision: string, note: string | null, decidedById: number): Promise<void> {

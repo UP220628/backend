@@ -48,7 +48,12 @@ export function getTokenFromHeader(req: { headers: { authorization?: string } })
  */
 export function resolveUserRole(req: any, res: any): string | undefined {
   const localUser: any = (res.locals && res.locals.user) || null;
+  const roleFromId =
+    typeof localUser?.roleId === 'number'
+      ? Object.entries(ROLE_IDS).find(([, value]) => value === localUser.roleId)?.[0]
+      : undefined;
   const roleCandidates = [
+    roleFromId,
     localUser?.roleName,
     localUser?.role,
     (req.headers['x-user-role'] as string) || undefined,

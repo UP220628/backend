@@ -1,0 +1,1 @@
+{"version":3,"file":"StatusHistoryService.js","sourceRoot":"","sources":["../../src/services/StatusHistoryService.ts"],"names":[],"mappings":";;;AAAA,qFAAwG;AAExG,MAAa,oBAAoB;IAChC,KAAK,CAAC,MAAM,CAAC,OAA6B;QACzC,OAAO,iDAAuB,CAAC,MAAM,CAAC,OAAO,CAAC,CAAC;IAChD,CAAC;CACD;AAJD,oDAIC;AAEY,QAAA,oBAAoB,GAAG,IAAI,oBAAoB,EAAE,CAAC"}

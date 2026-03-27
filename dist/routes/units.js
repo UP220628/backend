@@ -1,0 +1,28 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const controllers_1 = require("../controllers");
+const roleGuard_1 = require("../middleware/roleGuard");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.get('/', controllers_1.listUnits);
+router.get('/stats/defects', controllers_1.getDefectStats);
+router.get('/stats/by-status', controllers_1.getStatusStats);
+router.get('/in-repair', controllers_1.getUnitsInRepair);
+router.get('/today', auth_1.requireAuth, controllers_1.getTodayUnits);
+router.get('/archivable', auth_1.requireAuth, controllers_1.getArchivableUnits);
+router.get('/deletion-requests', auth_1.requireAuth, (0, roleGuard_1.requireRole)('SCM'), controllers_1.listUnitDeletionRequests);
+router.put('/deletion-requests/:requestId/decision', auth_1.requireAuth, (0, roleGuard_1.requireRole)('SCM'), controllers_1.decideUnitDeletionRequest);
+router.get('/:id', auth_1.requireAuth, controllers_1.getUnitById);
+router.post('/', controllers_1.createUnit);
+router.post('/:id/deletion-requests', auth_1.requireAuth, (0, roleGuard_1.requireAnyRole)(['CARRIER', 'WWS']), controllers_1.requestUnitDeletion);
+router.put('/:id/status', controllers_1.updateUnitStatus);
+router.put('/:id/priority', controllers_1.updateUnitPriority);
+router.put('/:id/estimated-time', controllers_1.updateEstimatedRepairTime);
+router.put('/:id/scm-decision', controllers_1.setScmDecision);
+router.put('/:id/archive', controllers_1.archiveUnit);
+router.post('/:id/defects', roleGuard_1.validateOverridePermission, controllers_1.addDefectToUnit);
+router.put('/:id/defects/:defectId', controllers_1.updateDefectGrade);
+router.put('/priority/order', controllers_1.updatePriorityOrder);
+exports.default = router;
+//# sourceMappingURL=units.js.map

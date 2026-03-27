@@ -6,6 +6,26 @@ import type { Notification } from '../types';
 import { ROLE_IDS } from '../constants';
 
 export class NotificationService {
+  private async createForUserIds(
+    userIds: number[],
+    unitId: number,
+    type: Notification['type'],
+    message: string
+  ) {
+    if (userIds.length === 0) return [];
+
+    const payload = userIds.map(userId => ({
+      userId,
+      unitId,
+      type,
+      message,
+    }));
+
+    const created = await notificationRepository.createMany(payload);
+    broadcastNotifications(created);
+    return created;
+  }
+
   private async createForRoleIds(
     roleIds: number[],
     unitId: number,
@@ -110,6 +130,29 @@ export class NotificationService {
   async notifyUnitArchived(unit: { id: number; vin: string }) {
     const message = `Unidad archivada (no disponible). VIN: ${unit.vin}`;
     return this.createForRoleIds([ROLE_IDS.SCM, ROLE_IDS.WWS], unit.id, 'UNIT_ARCHIVED', message);
+  }
+
+  async notifyUnitDeletionRequested(
+    unit: { id: number; vin: string },
+    reason: string,
+    requestedByLabel: string
+  ) {
+    const message = `Solicitud de borrado enviada por ${requestedByLabel}. VIN: ${unit.vin} — Justificacion: ${reason}`;
+    return this.createForRoleIds([ROLE_IDS.SCM], unit.id, 'UNIT_DELETION_REQUESTED', message);
+  }
+
+  async notifyUnitDeletionApproved(unit: { id: number; vin: string }, requesterUserId: number, reason?: string) {
+    const msg = reason
+      ? `SCM aprobo y borro la unidad solicitada. VIN: ${unit.vin} — Justificacion original: ${reason}`
+      : `SCM aprobo y borro la unidad solicitada. VIN: ${unit.vin}`;
+    return this.createForUserIds([requesterUserId], unit.id, 'UNIT_DELETION_APPROVED', msg);
+  }
+
+  async notifyUnitDeletionRejected(unit: { id: number; vin: string }, requesterUserId: number, decisionNote?: string | null) {
+    const msg = decisionNote
+      ? `SCM rechazo la solicitud de borrado. VIN: ${unit.vin} — Comentario: ${decisionNote}`
+      : `SCM rechazo la solicitud de borrado. VIN: ${unit.vin}`;
+    return this.createForUserIds([requesterUserId], unit.id, 'UNIT_DELETION_REJECTED', msg);
   }
 }
 

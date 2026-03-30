@@ -495,7 +495,10 @@ export class UnitRepository {
 					s.name as "statusName",
 					usr.name as "registeredBy",
 					usr."providerId" as "registeredByProviderId",
-					scm.name as "scmDecidedBy"
+					scm.name as "scmDecidedBy",
+					defect_info."defectCode",
+					defect_info."defectSummary",
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
@@ -509,6 +512,33 @@ export class UnitRepository {
 				) dr ON TRUE
 				LEFT JOIN "User" req_usr ON req_usr.id = dr."requestedById"
 				LEFT JOIN "User" dec_usr ON dec_usr.id = dr."decidedById"
+				LEFT JOIN LATERAL (
+					SELECT
+						CASE
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 1))
+							ELSE NULL
+						END as "defectCode",
+						CASE
+							WHEN POSITION('|' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", '|', 2))
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 2))
+							WHEN d.description IS NOT NULL AND d.description <> '' THEN d.description
+							ELSE d."defectType"
+						END as "defectSummary",
+						COUNT(*) OVER()::int as "activeDefectCount"
+					FROM "UnitDefect" d
+					LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
+					WHERE d."unitId" = u.id
+						AND d."isActive" = TRUE
+					ORDER BY
+						CASE dg.code
+							WHEN 'V1' THEN 1
+							WHEN 'V2' THEN 2
+							WHEN 'V3' THEN 3
+							ELSE 4
+						END,
+						d."createdAt" ASC
+					LIMIT 1
+				) defect_info ON TRUE
 				LEFT JOIN LATERAL (
 					SELECT "createdAt"
 					FROM "UnitEvent"
@@ -555,11 +585,41 @@ export class UnitRepository {
 					s.name as "statusName",
 					usr.name as "registeredBy",
 					usr."providerId" as "registeredByProviderId",
-					scm.name as "scmDecidedBy"
+					scm.name as "scmDecidedBy",
+					defect_info."defectCode",
+					defect_info."defectSummary",
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
 				LEFT JOIN "User" scm ON scm.id = u."scmDecisionById"
+				LEFT JOIN LATERAL (
+					SELECT
+						CASE
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 1))
+							ELSE NULL
+						END as "defectCode",
+						CASE
+							WHEN POSITION('|' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", '|', 2))
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 2))
+							WHEN d.description IS NOT NULL AND d.description <> '' THEN d.description
+							ELSE d."defectType"
+						END as "defectSummary",
+						COUNT(*) OVER()::int as "activeDefectCount"
+					FROM "UnitDefect" d
+					LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
+					WHERE d."unitId" = u.id
+						AND d."isActive" = TRUE
+					ORDER BY
+						CASE dg.code
+							WHEN 'V1' THEN 1
+							WHEN 'V2' THEN 2
+							WHEN 'V3' THEN 3
+							ELSE 4
+						END,
+						d."createdAt" ASC
+					LIMIT 1
+				) defect_info ON TRUE
 				LEFT JOIN LATERAL (
 					SELECT "createdAt"
 					FROM "UnitEvent"

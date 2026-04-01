@@ -153,8 +153,8 @@ export class UnitService {
 		return this.emitEvent(id, 'REPAIR_TIME_UPDATED');
 	}
 
-	async getUnitsInRepair(providerId?: number, plant?: string) {
-		return unitRepository.getUnitsInRepair(providerId, plant);
+	async getUnitsInRepair(providerId?: number, plant?: string, includeArchived: boolean = false) {
+		return unitRepository.getUnitsInRepair(providerId, plant, includeArchived);
 	}
 
 	async getUnitWithDefects(id: number) {
@@ -163,11 +163,7 @@ export class UnitService {
 
 	async archiveUnit(unitId: number, archivedById: number) {
 		await unitRepository.archiveUnit(unitId, archivedById);
-		const unit = await this.emitEvent(unitId, 'STATUS_CHANGED');
-		if (unit) {
-			await notificationService.notifyUnitArchived({ id: unit.id, vin: unit.vin });
-		}
-		return unit;
+		return this.emitEvent(unitId, 'STATUS_CHANGED');
 	}
 
 	async getArchivableUnits(plant?: string) {

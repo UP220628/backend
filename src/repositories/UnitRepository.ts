@@ -18,6 +18,7 @@ export class UnitRepository {
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			WHERE 1=1
+			AND s.name != 'ARCHIVED'
 			${hasProvider ? sql`AND u."providerId" = ${providerId}` : sql``}
 			${hasPlant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY u."createdAt" DESC
@@ -455,6 +456,7 @@ export class UnitRepository {
 			FROM "UnitDefect" ud
 			JOIN "DefectGrade" dg ON dg.id = ud."gradeId"
 			JOIN "Unit" u ON u.id = ud."unitId"
+			JOIN "UnitStatus" s ON s.id = u."statusId"
 			WHERE ud."isActive" = ${true}
 			${todayOnly ? sql`AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date` : sql``}
 			${plant ? sql`AND u.plant = ${plant}` : sql``}
@@ -547,6 +549,7 @@ export class UnitRepository {
 					LIMIT 1
 				) last_status ON TRUE
 				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				AND s.name != 'ARCHIVED'
 				${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 				${plant ? sql`AND u.plant = ${plant}` : sql``}
 				ORDER BY u."createdAt" DESC
@@ -628,6 +631,7 @@ export class UnitRepository {
 					LIMIT 1
 				) last_status ON TRUE
 				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				AND s.name != 'ARCHIVED'
 				${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 				${plant ? sql`AND u.plant = ${plant}` : sql``}
 				ORDER BY u."createdAt" DESC
@@ -681,7 +685,7 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 	}
 
 	// Obtener unidades actualmente en reparación con tiempos estimados
-	async getUnitsInRepair(providerId?: number, plant?: string): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
+	async getUnitsInRepair(providerId?: number, plant?: string, includeArchived: boolean = false): Promise<Array<{ id: number; vin: string; estimatedRepairHours: number; estimatedCompletionDate: Date | null; updatedAt: Date; providerId: number | null; providerName: string | null }>> {
 		const result = await sql<any[]>`
 			SELECT 
 				u.id, 
@@ -694,9 +698,9 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "Provider" p ON p.id = u."providerId"
-			WHERE s.name = 'IN_REPAIR' 
+			${includeArchived ? sql`WHERE s.name IN ('IN_REPAIR', 'ARCHIVED')` : sql`WHERE s.name = 'IN_REPAIR'`}
 			AND u."estimatedRepairHours" IS NOT NULL
-			AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+			${includeArchived ? sql`` : sql`AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date`}
 			${providerId ? sql`AND u."providerId" = ${providerId}` : sql``}
 			${plant ? sql`AND u.plant = ${plant}` : sql``}
 			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
@@ -793,7 +797,7 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 		`;
 	}
 
-	// Archive UNAVAILABLE units with SCM decisions (soft delete)
+	// Archive a unit (soft delete) by moving it to ARCHIVED status.
 	async archiveUnit(unitId: number, archivedById: number): Promise<void> {
 		await sql.begin(async (trx: any) => {
 			const statusResult = await trx`
@@ -802,10 +806,17 @@ async getStatusStats(plant?: string): Promise<Record<string, number>> {
 			const archivedStatusId = (statusResult as Array<{ id: number }>)[0]?.id;
 			if (!archivedStatusId) throw new Error('ARCHIVED status not found');
 
-			const unitResult = await trx`
-				SELECT "statusId" FROM "Unit" WHERE id = ${unitId}
+			const unitResult = await trx<Array<{ statusId: number; statusName: string }>>`
+				SELECT u."statusId", s.name as "statusName"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				WHERE u.id = ${unitId}
+				LIMIT 1
 			`;
-			const previousStatusId = (unitResult as Array<{ statusId: number }>)[0]?.statusId;
+			const unit = unitResult[0];
+			if (!unit) throw new Error('Unit not found');
+			if (unit.statusName === 'ARCHIVED') throw new Error('Unit is already archived');
+			const previousStatusId = unit.statusId;
 
 			await trx`
 				UPDATE "Unit"

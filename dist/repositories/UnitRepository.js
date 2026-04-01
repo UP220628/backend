@@ -21,6 +21,7 @@ class UnitRepository {
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			WHERE 1=1
+			AND s.name != 'ARCHIVED'
 			${hasProvider ? (0, database_1.default) `AND u."providerId" = ${providerId}` : (0, database_1.default) ``}
 			${hasPlant ? (0, database_1.default) `AND u.plant = ${plant}` : (0, database_1.default) ``}
 			ORDER BY u."createdAt" DESC
@@ -408,6 +409,7 @@ class UnitRepository {
 			FROM "UnitDefect" ud
 			JOIN "DefectGrade" dg ON dg.id = ud."gradeId"
 			JOIN "Unit" u ON u.id = ud."unitId"
+			JOIN "UnitStatus" s ON s.id = u."statusId"
 			WHERE ud."isActive" = ${true}
 			${todayOnly ? (0, database_1.default) `AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date` : (0, database_1.default) ``}
 			${plant ? (0, database_1.default) `AND u.plant = ${plant}` : (0, database_1.default) ``}
@@ -449,7 +451,10 @@ class UnitRepository {
 					s.name as "statusName",
 					usr.name as "registeredBy",
 					usr."providerId" as "registeredByProviderId",
-					scm.name as "scmDecidedBy"
+					scm.name as "scmDecidedBy",
+					defect_info."defectCode",
+					defect_info."defectSummary",
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
@@ -464,6 +469,33 @@ class UnitRepository {
 				LEFT JOIN "User" req_usr ON req_usr.id = dr."requestedById"
 				LEFT JOIN "User" dec_usr ON dec_usr.id = dr."decidedById"
 				LEFT JOIN LATERAL (
+					SELECT
+						CASE
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 1))
+							ELSE NULL
+						END as "defectCode",
+						CASE
+							WHEN POSITION('|' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", '|', 2))
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 2))
+							WHEN d.description IS NOT NULL AND d.description <> '' THEN d.description
+							ELSE d."defectType"
+						END as "defectSummary",
+						COUNT(*) OVER()::int as "activeDefectCount"
+					FROM "UnitDefect" d
+					LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
+					WHERE d."unitId" = u.id
+						AND d."isActive" = TRUE
+					ORDER BY
+						CASE dg.code
+							WHEN 'V1' THEN 1
+							WHEN 'V2' THEN 2
+							WHEN 'V3' THEN 3
+							ELSE 4
+						END,
+						d."createdAt" ASC
+					LIMIT 1
+				) defect_info ON TRUE
+				LEFT JOIN LATERAL (
 					SELECT "createdAt"
 					FROM "UnitEvent"
 					WHERE "unitId" = u.id AND "eventType" = 'STATUS_CHANGE'
@@ -471,6 +503,7 @@ class UnitRepository {
 					LIMIT 1
 				) last_status ON TRUE
 				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				AND s.name != 'ARCHIVED'
 				${providerId ? (0, database_1.default) `AND u."providerId" = ${providerId}` : (0, database_1.default) ``}
 				${plant ? (0, database_1.default) `AND u.plant = ${plant}` : (0, database_1.default) ``}
 				ORDER BY u."createdAt" DESC
@@ -506,11 +539,41 @@ class UnitRepository {
 					s.name as "statusName",
 					usr.name as "registeredBy",
 					usr."providerId" as "registeredByProviderId",
-					scm.name as "scmDecidedBy"
+					scm.name as "scmDecidedBy",
+					defect_info."defectCode",
+					defect_info."defectSummary",
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
 				LEFT JOIN "User" scm ON scm.id = u."scmDecisionById"
+				LEFT JOIN LATERAL (
+					SELECT
+						CASE
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 1))
+							ELSE NULL
+						END as "defectCode",
+						CASE
+							WHEN POSITION('|' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", '|', 2))
+							WHEN POSITION(' - ' IN d."defectType") > 0 THEN BTRIM(SPLIT_PART(d."defectType", ' - ', 2))
+							WHEN d.description IS NOT NULL AND d.description <> '' THEN d.description
+							ELSE d."defectType"
+						END as "defectSummary",
+						COUNT(*) OVER()::int as "activeDefectCount"
+					FROM "UnitDefect" d
+					LEFT JOIN "DefectGrade" dg ON dg.id = d."gradeId"
+					WHERE d."unitId" = u.id
+						AND d."isActive" = TRUE
+					ORDER BY
+						CASE dg.code
+							WHEN 'V1' THEN 1
+							WHEN 'V2' THEN 2
+							WHEN 'V3' THEN 3
+							ELSE 4
+						END,
+						d."createdAt" ASC
+					LIMIT 1
+				) defect_info ON TRUE
 				LEFT JOIN LATERAL (
 					SELECT "createdAt"
 					FROM "UnitEvent"
@@ -519,6 +582,7 @@ class UnitRepository {
 					LIMIT 1
 				) last_status ON TRUE
 				WHERE (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+				AND s.name != 'ARCHIVED'
 				${providerId ? (0, database_1.default) `AND u."providerId" = ${providerId}` : (0, database_1.default) ``}
 				${plant ? (0, database_1.default) `AND u.plant = ${plant}` : (0, database_1.default) ``}
 				ORDER BY u."createdAt" DESC
@@ -566,7 +630,7 @@ class UnitRepository {
         return stats;
     }
     // Obtener unidades actualmente en reparación con tiempos estimados
-    async getUnitsInRepair(providerId, plant) {
+    async getUnitsInRepair(providerId, plant, includeArchived = false) {
         const result = await (0, database_1.default) `
 			SELECT 
 				u.id, 
@@ -579,9 +643,9 @@ class UnitRepository {
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "Provider" p ON p.id = u."providerId"
-			WHERE s.name = 'IN_REPAIR' 
+			${includeArchived ? (0, database_1.default) `WHERE s.name IN ('IN_REPAIR', 'ARCHIVED')` : (0, database_1.default) `WHERE s.name = 'IN_REPAIR'`}
 			AND u."estimatedRepairHours" IS NOT NULL
-			AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date
+			${includeArchived ? (0, database_1.default) `` : (0, database_1.default) `AND (u."createdAt" AT TIME ZONE 'America/Mexico_City')::date = (NOW() AT TIME ZONE 'America/Mexico_City')::date`}
 			${providerId ? (0, database_1.default) `AND u."providerId" = ${providerId}` : (0, database_1.default) ``}
 			${plant ? (0, database_1.default) `AND u.plant = ${plant}` : (0, database_1.default) ``}
 			ORDER BY p.name ASC NULLS LAST, u."updatedAt" ASC
@@ -665,7 +729,7 @@ class UnitRepository {
 			VALUES (${unitId}, 'REPAIR_TIME_UPDATED', ${database_1.default.json(eventData)}, ${updatedById}, NOW() AT TIME ZONE 'America/Mexico_City')
 		`;
     }
-    // Archive UNAVAILABLE units with SCM decisions (soft delete)
+    // Archive a unit (soft delete) by moving it to ARCHIVED status.
     async archiveUnit(unitId, archivedById) {
         await database_1.default.begin(async (trx) => {
             const statusResult = await trx `
@@ -675,9 +739,18 @@ class UnitRepository {
             if (!archivedStatusId)
                 throw new Error('ARCHIVED status not found');
             const unitResult = await trx `
-				SELECT "statusId" FROM "Unit" WHERE id = ${unitId}
+				SELECT u."statusId", s.name as "statusName"
+				FROM "Unit" u
+				JOIN "UnitStatus" s ON s.id = u."statusId"
+				WHERE u.id = ${unitId}
+				LIMIT 1
 			`;
-            const previousStatusId = unitResult[0]?.statusId;
+            const unit = unitResult[0];
+            if (!unit)
+                throw new Error('Unit not found');
+            if (unit.statusName === 'ARCHIVED')
+                throw new Error('Unit is already archived');
+            const previousStatusId = unit.statusId;
             await trx `
 				UPDATE "Unit"
 				SET 

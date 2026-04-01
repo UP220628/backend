@@ -20,7 +20,7 @@ router.put('/:id/status', updateUnitStatus);
 router.put('/:id/priority', updateUnitPriority);
 router.put('/:id/estimated-time', updateEstimatedRepairTime);
 router.put('/:id/scm-decision', setScmDecision);
-router.put('/:id/archive', archiveUnit);
+router.put('/:id/archive', requireAuth, requireAnyRole(['ADMIN', 'SCM']), archiveUnit);
 router.post('/:id/defects', validateOverridePermission, addDefectToUnit);
 router.put('/:id/defects/:defectId', updateDefectGrade);
 router.put('/priority/order', updatePriorityOrder);

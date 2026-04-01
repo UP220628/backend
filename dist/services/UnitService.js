@@ -124,19 +124,15 @@ class UnitService {
         await UnitRepository_1.unitRepository.updateEstimatedRepairTime(id, estimatedRepairHours, updatedById);
         return this.emitEvent(id, 'REPAIR_TIME_UPDATED');
     }
-    async getUnitsInRepair(providerId, plant) {
-        return UnitRepository_1.unitRepository.getUnitsInRepair(providerId, plant);
+    async getUnitsInRepair(providerId, plant, includeArchived = false) {
+        return UnitRepository_1.unitRepository.getUnitsInRepair(providerId, plant, includeArchived);
     }
     async getUnitWithDefects(id) {
         return UnitRepository_1.unitRepository.findByIdWithDefects(id);
     }
     async archiveUnit(unitId, archivedById) {
         await UnitRepository_1.unitRepository.archiveUnit(unitId, archivedById);
-        const unit = await this.emitEvent(unitId, 'STATUS_CHANGED');
-        if (unit) {
-            await NotificationService_1.notificationService.notifyUnitArchived({ id: unit.id, vin: unit.vin });
-        }
-        return unit;
+        return this.emitEvent(unitId, 'STATUS_CHANGED');
     }
     async getArchivableUnits(plant) {
         return UnitRepository_1.unitRepository.getArchivableUnits(plant);

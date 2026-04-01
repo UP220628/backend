@@ -146,7 +146,8 @@ exports.getUnitsInRepair = (0, asyncHandler_1.asyncHandler)(async (req, res) => 
     const user = res.locals.user;
     const providerId = (0, helpers_1.getCarrierProviderId)(user);
     const plant = (0, helpers_1.getUserPlantFilter)(user);
-    const units = await UnitService_1.unitService.getUnitsInRepair(providerId, plant);
+    const includeArchived = req.query.includeArchived === 'true';
+    const units = await UnitService_1.unitService.getUnitsInRepair(providerId, plant, includeArchived);
     res.json({ ok: true, data: units });
 });
 exports.getUnitById = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
@@ -162,11 +163,12 @@ exports.getUnitById = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 exports.archiveUnit = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const id = Number(req.params.id);
-    const { archivedById } = req.body || {};
+    const user = res.locals.user;
+    const archivedById = Number(user?.userId);
     if (!id || !archivedById) {
-        return res.status(400).json({ ok: false, error: 'Missing id or archivedById' });
+        return res.status(400).json({ ok: false, error: 'Missing id or authenticated user' });
     }
-    const unit = await UnitService_1.unitService.archiveUnit(id, Number(archivedById));
+    const unit = await UnitService_1.unitService.archiveUnit(id, archivedById);
     res.json({ ok: true, data: unit });
 });
 exports.getArchivableUnits = (0, asyncHandler_1.asyncHandler)(async (req, res) => {

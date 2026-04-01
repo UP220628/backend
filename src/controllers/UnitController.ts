@@ -170,7 +170,8 @@ export const getUnitsInRepair = asyncHandler(async (req: Request, res: Response)
 	const user = res.locals.user;
 	const providerId = getCarrierProviderId(user);
 	const plant = getUserPlantFilter(user);
-	const units = await unitService.getUnitsInRepair(providerId, plant);
+	const includeArchived = req.query.includeArchived === 'true';
+	const units = await unitService.getUnitsInRepair(providerId, plant, includeArchived);
 	res.json({ ok: true, data: units });
 });
 
@@ -188,11 +189,12 @@ export const getUnitById = asyncHandler(async (req: Request, res: Response) => {
 
 export const archiveUnit = asyncHandler(async (req: Request, res: Response) => {
 	const id = Number(req.params.id);
-	const { archivedById } = req.body || {};
+	const user = res.locals.user;
+	const archivedById = Number(user?.userId);
 	if (!id || !archivedById) {
-		return res.status(400).json({ ok: false, error: 'Missing id or archivedById' });
+		return res.status(400).json({ ok: false, error: 'Missing id or authenticated user' });
 	}
-	const unit = await unitService.archiveUnit(id, Number(archivedById));
+	const unit = await unitService.archiveUnit(id, archivedById);
 	res.json({ ok: true, data: unit });
 });
 

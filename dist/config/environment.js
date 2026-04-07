@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.env = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+dotenv_1.default.config({ path: '.env.local', override: true });
 function required(name, value) {
     if (!value)
         throw new Error(`Missing required env var ${name}`);
@@ -19,12 +20,6 @@ exports.env = {
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
     refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    db: {
-        host: required('DB_HOST', process.env.DB_HOST),
-        port: Number(process.env.DB_PORT || 5432),
-        database: required('DB_DATABASE', process.env.DB_DATABASE),
-        user: required('DB_USER', process.env.DB_USER),
-        password: required('DB_PASSWORD', process.env.DB_PASSWORD),
-    },
+    databaseUrl: required('DATABASE_URL', process.env.DATABASE_URL),
 };
 //# sourceMappingURL=environment.js.map

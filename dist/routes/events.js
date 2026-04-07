@@ -10,18 +10,24 @@ const environment_1 = require("../config/environment");
 const constants_1 = require("../constants");
 const router = (0, express_1.Router)();
 router.get('/units', (req, res) => {
-    const token = typeof req.query.token === 'string' ? req.query.token : undefined;
-    if (!token) {
-        return res.status(401).json({ ok: false, error: 'Missing token' });
-    }
     let userPlant;
-    try {
-        const payload = jsonwebtoken_1.default.verify(token, environment_1.env.jwtSecret);
-        // Extract plant from JWT for plant-aware SSE filtering
-        userPlant = payload.plant;
+    const authUser = res.locals?.user;
+    if (authUser) {
+        userPlant = authUser.roleId === constants_1.ROLE_IDS.ADMIN ? undefined : authUser.plant;
     }
-    catch (err) {
-        return res.status(401).json({ ok: false, error: 'Invalid token' });
+    else {
+        const token = typeof req.query.token === 'string' ? req.query.token : undefined;
+        if (!token) {
+            return res.status(401).json({ ok: false, error: 'Missing authentication token' });
+        }
+        try {
+            const payload = jsonwebtoken_1.default.verify(token, environment_1.env.jwtSecret);
+            const roleId = Number(payload.roleId);
+            userPlant = roleId === constants_1.ROLE_IDS.ADMIN ? undefined : payload.plant;
+        }
+        catch (err) {
+            return res.status(401).json({ ok: false, error: 'Invalid token' });
+        }
     }
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');

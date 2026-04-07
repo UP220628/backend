@@ -92,6 +92,11 @@ app.get('/', (_req, res) => {
 	res.json({ ok: true, service: 'body-app-backend' });
 });
 
+app.use((req: express.Request, res: express.Response) => {
+	const requestId = (res.locals as any)?.requestId;
+	return res.status(404).json({ ok: false, error: 'Not found', requestId });
+});
+
 app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
 	const requestId = (res.locals as any)?.requestId;
 	const detail = sanitizeErrorDetail(err);

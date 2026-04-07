@@ -82,6 +82,10 @@ app.use('/events', events_1.default);
 app.get('/', (_req, res) => {
     res.json({ ok: true, service: 'body-app-backend' });
 });
+app.use((req, res) => {
+    const requestId = res.locals?.requestId;
+    return res.status(404).json({ ok: false, error: 'Not found', requestId });
+});
 app.use((err, req, res, _next) => {
     const requestId = res.locals?.requestId;
     const detail = sanitizeErrorDetail(err);

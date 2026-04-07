@@ -5,8 +5,10 @@
   "main": "dist/app.js",
   "scripts": {
     "dev": "ts-node src/app.ts",
-    "build": "tsc",
-    "start": "node dist/app.js"
+    "type-check": "tsc --noEmit",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
+    "start": "node dist/app.js",
+    "test": "node -e \"console.log('No automated tests configured yet')\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

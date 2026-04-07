@@ -2,7 +2,7 @@
 
 API REST + WebSocket para la trazabilidad de reparación de unidades vehiculares (planchas para madrinas).
 
-**Stack:** Node.js · Express · TypeScript · PostgreSQL (`postgres` driver) · JWT · WebSocket (`ws`)
+**Stack:** Node.js · Express · TypeScript · PostgreSQL (`postgres` + tipos `pg`) · JWT · WebSocket (`ws`)
 
 ---
 
@@ -15,7 +15,10 @@ npm run build     # compila a dist/
 npm start         # corre dist/app.js en producción
 ```
 
-Requiere un archivo `.env` en la raíz de `backend/` con las variables definidas en `src/config/environment.ts`.
+Usar `.env.local` en la raíz de `backend/` para valores locales.
+El archivo versionado es `.env.example` como plantilla.
+
+Nota importante: el backend valida y usa `DATABASE_URL` como fuente única de conexión.
 
 ---
 
@@ -25,9 +28,12 @@ Requiere un archivo `.env` en la raíz de `backend/` con las variables definidas
 |----------|-------------|
 | `DATABASE_URL` | Cadena de conexión PostgreSQL |
 | `JWT_SECRET` | Secreto para firmar/verificar tokens JWT |
-| `PORT` | Puerto del servidor (default: 3001) |
+| `JWT_EXPIRES_IN` | Expiración de access token (default: `15m`) |
+| `REFRESH_TOKEN_EXPIRES_IN` | Expiración de refresh token (default: `30d`) |
+| `PORT` | Puerto del servidor (default: `3001`) |
 | `CORS_ORIGIN` | Orígenes permitidos separados por coma |
 | `USE_HTTPS` | `true` para habilitar HTTPS |
+| `NODE_ENV` | Entorno de ejecución (default: `development`) |
 
 ---
 
@@ -78,14 +84,14 @@ backend/src/
 │   ├── NotificationController.ts # getNotifications, markRead, markAllRead
 │   ├── DashboardController.ts  # getMonthlyStats, getDefectTrends
 │   ├── StatusHistoryController.ts # getStatusHistory (vía UnitEvent)
-│   └── NotificationController.ts
+│   └── UnitDeletionRequestController.ts # create/delete request de baja y decisiones SCM
 │
 ├── services/                   # Lógica de negocio: orquesta repository + notificaciones + SSE
 │   ├── AuthService.ts          # hashPassword, verifyPassword, generarJWT
 │   ├── UnitService.ts          # createUnit, updateUnitStatus (dispara notificaciones y SSE),
 │   │                           # addDefect, reorderPriority, setScmDecision, archiveUnit
 │   ├── NotificationService.ts  # notifyUnitReported/Released/Delivered/WwsReleased/Accepted/
-│   │                           # Rejected/Archived/VqaPending — filtra por planta y proveedor
+│   │                           # Rejected/Archived/WtyPending/WtyReleased — filtra por planta y proveedor
 │   ├── UserService.ts          # CRUD de usuarios con hash de contraseña
 │   ├── ProviderService.ts      # CRUD de proveedores
 │   └── StatusHistoryService.ts # Consulta historial de eventos de una unidad
@@ -174,7 +180,7 @@ La lógica de `UnitRepository.updateStatus()` aplica efectos secundarios automá
 |---------------|--------|
 | `IN_REPAIR` | Calcula `estimatedCompletionDate` considerando la cola; limpia `priorityRank` |
 | `RELEASED` | Marca todos los defectos activos como `isResolved = true`; limpia `priorityRank` |
-| `WWS_RELEASED` | Marca defectos activos como `isResolved = true` (VQA aprobó, se salta Body); limpia `priorityRank` |
+| `WWS_RELEASED` | Marca defectos activos como `isResolved = true` (WTY aprobó, se salta Body); limpia `priorityRank` |
 | `REJECTED` | Reabre todos los defectos (`isResolved = false`); guarda `rejectionNote`; limpia `priorityRank` |
 | `ACCEPTED` | Limpia `priorityRank` |
 | `ARCHIVED` | Guarda `archivedAt` + `archivedById`; limpia `priorityRank` |
@@ -188,10 +194,11 @@ La lógica de `UnitRepository.updateStatus()` aplica efectos secundarios automá
 | Unidad reportada | `notifyUnitReported` | WWS, SCM, BODY |
 | Entregada a Body | `notifyUnitDelivered` | BODY, SCM |
 | Liberada por Body | `notifyUnitReleased` | WWS, SCM, CARRIER (mismo proveedor) |
+| Enviada a validación WTY | `notifyWtyPending` | WTY, SCM_QUALITY, SCM |
+| Aprobada por WTY | `notifyWtyReleased` | WWS, SCM |
 | Liberada por WWS | `notifyUnitWwsReleased` | CARRIER (mismo proveedor), SCM |
 | Aceptada | `notifyUnitAccepted` | WWS, SCM, BODY |
 | Rechazada por Carrier | `notifyUnitRejected` | WWS, SCM, BODY |
-| Enviada a VQA | `notifyVqaPending` | VQA, SCM |
 | Archivada | `notifyUnitArchived` | SCM, WWS |
 
 Las notificaciones están filtradas por **planta** (A1/A2) y, para CARRIER, solo se envían a usuarios del **mismo proveedor** de la unidad.
@@ -201,14 +208,15 @@ Las notificaciones están filtradas por **planta** (A1/A2) y, para CARRIER, solo
 ## Base de datos
 
 El schema completo está en `docs/database-schema-postgresql.sql`.  
-Las migraciones incrementales están en `docs/migration-*.sql`.
+Guía funcional y explicación de entidades: `docs/DATABASE-README.md`.  
+Las migraciones incrementales están en `docs/database-migration-*.sql`.
 
 Tablas principales:
 
 | Tabla | Descripción |
 |-------|-------------|
 | `User` | Usuarios con rol, planta y proveedor |
-| `Role` | WWS(1), SCM(2), BODY(3), CARRIER(4), ADMIN(5), VQA(6) |
+| `Role` | WWS(1), SCM(2), BODY(3), CARRIER(4), ADMIN(5), WTY(6), SCM_QUALITY(7) |
 | `Provider` | Empresas carrier |
 | `UnitStatus` | Catálogo de estados posibles |
 | `Unit` | Unidades vehiculares con todos sus campos de estado y prioridad |

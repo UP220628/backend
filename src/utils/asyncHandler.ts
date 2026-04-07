@@ -1,12 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Wraps an async route handler to catch errors and return a consistent
- * `{ ok: false, error }` response, eliminating repetitive try/catch blocks.
+ * Wraps async route handlers and forwards failures to Express error middleware,
+ * which centralizes sanitization and response formatting.
  */
 export const asyncHandler =
   (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
   (req: Request, res: Response, next: NextFunction) =>
-    Promise.resolve(fn(req, res, next)).catch((err: any) => {
-      res.status(500).json({ ok: false, error: err.message ?? 'Internal server error' });
-    });
+    Promise.resolve(fn(req, res, next)).catch(next);

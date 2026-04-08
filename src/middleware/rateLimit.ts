@@ -79,6 +79,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: any) => {
+    if (req.method === 'OPTIONS') return true;
     return process.env.NODE_ENV === 'development';
   },
 });

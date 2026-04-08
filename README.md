@@ -37,6 +37,21 @@ Nota importante: el backend valida y usa `DATABASE_URL` como fuente única de co
 
 ---
 
+## CORS en Render + localhost
+
+Si el frontend corre local (`http://localhost:3000`) y el backend está desplegado en Render,
+configura `CORS_ORIGIN` con todos los orígenes necesarios separados por coma.
+
+Ejemplo:
+
+```env
+CORS_ORIGIN=http://localhost:3000,https://tu-frontend.vercel.app
+```
+
+La API también permite preflight `OPTIONS` explícitamente para evitar bloqueos del navegador.
+
+---
+
 ## Estructura de carpetas
 
 ```

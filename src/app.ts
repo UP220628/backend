@@ -1,7 +1,7 @@
 import express from 'express';
 import http from 'http';
 import https from 'https';
-import cors from 'cors';
+import cors, { CorsOptions } from 'cors';
 import { randomUUID } from 'crypto';
 import { env } from './config/environment';
 import healthRouter from './routes/health';
@@ -37,15 +37,56 @@ function sanitizeErrorDetail(value: unknown): string {
 	return message;
 }
 
-// CORS restringido a orígenes autorizados
-const corsOptions = {
-  origin: env.corsOrigin.split(',').map(o => o.trim()),
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role', 'x-user-id'],
-  maxAge: 86400,
+const configuredCorsOrigins = env.corsOrigin
+	.split(',')
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+
+const defaultLocalOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+const allowedCorsOrigins = Array.from(new Set([...configuredCorsOrigins, ...defaultLocalOrigins]));
+
+function isOriginAllowed(origin: string): boolean {
+	if (allowedCorsOrigins.includes('*')) {
+		return true;
+	}
+
+	if (allowedCorsOrigins.includes(origin)) {
+		return true;
+	}
+
+	try {
+		const parsedOrigin = new URL(origin);
+		return (
+			(parsedOrigin.hostname === 'localhost' || parsedOrigin.hostname === '127.0.0.1') &&
+			(parsedOrigin.protocol === 'http:' || parsedOrigin.protocol === 'https:')
+		);
+	} catch {
+		return false;
+	}
+}
+
+const corsOptions: CorsOptions = {
+	origin: (origin, callback) => {
+		// Allow requests with no Origin header (curl, health checks, server-to-server).
+		if (!origin) {
+			return callback(null, true);
+		}
+
+		if (isOriginAllowed(origin)) {
+			return callback(null, true);
+		}
+
+		console.warn('CORS blocked origin=%s allowedOrigins=%s', origin, allowedCorsOrigins.join(','));
+		return callback(null, false);
+	},
+	credentials: true,
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+	allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role', 'x-user-id'],
+	maxAge: 86400,
+	optionsSuccessStatus: 204,
 };
 
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

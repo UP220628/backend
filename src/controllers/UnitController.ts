@@ -94,20 +94,39 @@ export const updatePriorityOrder = asyncHandler(async (req: Request, res: Respon
 
 export const addDefectToUnit = asyncHandler(async (req: Request, res: Response) => {
 	const id = Number(req.params.id);
-	const { defectType, zone, grade, registeredById, description, isFromWws, overrideExisting, wwsVersion } = req.body || {};
+	const { defectType, zone, grade, registeredById, description, photoUrls, isFromWws, overrideExisting, wwsVersion } = req.body || {};
 	if (!id || !defectType || !zone || !grade || !registeredById) {
 		return res.status(400).json({ ok: false, error: 'Missing id, defectType, zone, grade or registeredById' });
 	}
 	if (!VALID_GRADES.includes(grade)) {
 		return res.status(400).json({ ok: false, error: `Invalid grade. Use ${VALID_GRADES.join('|')}.` });
 	}
+	const normalizedPhotoUrls = Array.isArray(photoUrls)
+		? photoUrls.filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
+		: undefined;
 	const options = {
 		isFromWws: !!isFromWws,
 		overrideExisting: !!overrideExisting,
 		wwsVersion: typeof wwsVersion === 'string' ? wwsVersion : undefined,
 	};
-	const unit = await unitService.addDefectToUnit(id, defectType, zone, grade, Number(registeredById), description, options);
+	const unit = await unitService.addDefectToUnit(id, defectType, zone, grade, Number(registeredById), description, normalizedPhotoUrls, options);
 	res.status(201).json({ ok: true, data: unit });
+});
+
+export const deleteDefectPhoto = asyncHandler(async (req: Request, res: Response) => {
+	const unitId = Number(req.params.id);
+	const defectId = Number(req.params.defectId);
+
+	if (!unitId || !defectId) {
+		return res.status(400).json({ ok: false, error: 'Missing unitId or defectId' });
+	}
+
+	const unit = await unitService.deleteDefectPhoto(unitId, defectId);
+	if (!unit) {
+		return res.status(404).json({ ok: false, error: 'Unit not found' });
+	}
+
+	res.json({ ok: true, data: unit });
 });
 
 export const updateDefectGrade = asyncHandler(async (req: Request, res: Response) => {

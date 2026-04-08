@@ -82,7 +82,7 @@ export class UnitRepository {
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 			u."createdAt", u."updatedAt", u."wtyComment",
 				s.name as "statusName",
-				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
+				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved", d."photoUrls"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "UnitDefect" d ON d."unitId" = u.id AND d."isActive" = TRUE
@@ -130,6 +130,7 @@ export class UnitRepository {
 					grade: row.grade,
 					description: row.description,
 					isResolved: row.isResolved,
+					photoUrls: Array.isArray(row.photoUrls) ? row.photoUrls : [],
 				});
 			}
 		}
@@ -248,6 +249,18 @@ export class UnitRepository {
 			`;
 		}
 
+		// Al aceptar la unidad, eliminar referencias de fotos para evitar residuales
+		if (newStatusName === 'ACCEPTED') {
+			await trx`
+				UPDATE "UnitDefect"
+				SET "photoUrls" = ARRAY[]::TEXT[], "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+				WHERE "unitId" = ${unitId}
+				  AND "isActive" = ${true}
+				  AND "photoUrls" IS NOT NULL
+				  AND array_length("photoUrls", 1) > 0
+			`;
+		}
+
 		if (isAvailableToday !== undefined) {
 			updates.isAvailableToday = isAvailableToday;
 		}
@@ -342,7 +355,7 @@ export class UnitRepository {
 				u."priorityNote", u."priorityRank", u."priorityAssignedById", u."priorityAssignedAt",
 			u."createdAt", u."updatedAt", u."wtyComment",
 				s.name as "statusName",
-				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved"
+				d.id as "defectId", d."defectType", d.zone, d."gradeId", dg.code as grade, d.description, d."isResolved", d."photoUrls"
 			FROM "Unit" u
 			JOIN "UnitStatus" s ON s.id = u."statusId"
 			LEFT JOIN "UnitDefect" d ON d."unitId" = u.id AND d."isActive" = TRUE
@@ -361,6 +374,7 @@ export class UnitRepository {
 				zone: row.zone,
 				grade: row.grade,
 				isResolved: row.isResolved,
+				photoUrls: Array.isArray(row.photoUrls) ? row.photoUrls : [],
 			}));
 
 		return {
@@ -393,6 +407,7 @@ export class UnitRepository {
 		gradeCode: string,
 		description: string | null,
 		registeredById: number,
+		photoUrls?: string[],
 		options?: { isFromWws?: boolean; overrideExisting?: boolean; wwsVersion?: string }
 	): Promise<number> {
 		const gradeRes = await sql<[{ id: number }]>`
@@ -404,6 +419,7 @@ export class UnitRepository {
 		const isFromWws = options?.isFromWws === true;
 		const overrideExisting = options?.overrideExisting === true;
 		const wwsVersion = options?.wwsVersion ?? null;
+		const normalizedPhotoUrls = (photoUrls ?? []).filter((url) => typeof url === 'string' && url.trim().length > 0);
 
 		// Buscar defectos activos existentes con la misma combinación
 		const existing = await sql<any[]>`
@@ -429,11 +445,49 @@ export class UnitRepository {
 		}
 
 		const result = await sql<[{ id: number }]>`
-			INSERT INTO "UnitDefect" ("unitId", "defectType", zone, "gradeId", description, "registeredById", "isActive", "wwsVersion", "createdAt", "updatedAt")
-			VALUES (${unitId}, ${defectType}, ${zone}, ${gradeId}, ${description}, ${registeredById}, TRUE, ${wwsVersion}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
+			INSERT INTO "UnitDefect" ("unitId", "defectType", zone, "gradeId", description, "registeredById", "isActive", "wwsVersion", "photoUrls", "createdAt", "updatedAt")
+			VALUES (${unitId}, ${defectType}, ${zone}, ${gradeId}, ${description}, ${registeredById}, TRUE, ${wwsVersion}, ${normalizedPhotoUrls}, NOW() AT TIME ZONE 'America/Mexico_City', NOW() AT TIME ZONE 'America/Mexico_City')
 			RETURNING id
 		`;
 		return result[0].id;
+	}
+
+	async getUnitPhotoUrls(unitId: number): Promise<string[]> {
+		const rows = await sql<Array<{ photoUrls: string[] | null }>>`
+			SELECT "photoUrls"
+			FROM "UnitDefect"
+			WHERE "unitId" = ${unitId}
+			  AND "photoUrls" IS NOT NULL
+			  AND array_length("photoUrls", 1) > 0
+		`;
+
+		return rows.flatMap((row) => (Array.isArray(row.photoUrls) ? row.photoUrls : [])).filter((url) => typeof url === 'string' && url.trim().length > 0);
+	}
+
+	async getDefectPhotoUrls(unitId: number, defectId: number): Promise<string[]> {
+		const rows = await sql<Array<{ photoUrls: string[] | null }>>`
+			SELECT "photoUrls"
+			FROM "UnitDefect"
+			WHERE id = ${defectId}
+			  AND "unitId" = ${unitId}
+			LIMIT 1
+		`;
+
+		const photoUrls = rows[0]?.photoUrls;
+		if (!Array.isArray(photoUrls)) {
+			return [];
+		}
+
+		return photoUrls.filter((url) => typeof url === 'string' && url.trim().length > 0);
+	}
+
+	async clearDefectPhotoUrls(unitId: number, defectId: number): Promise<void> {
+		await sql`
+			UPDATE "UnitDefect"
+			SET "photoUrls" = ARRAY[]::TEXT[], "updatedAt" = NOW() AT TIME ZONE 'America/Mexico_City'
+			WHERE id = ${defectId}
+			  AND "unitId" = ${unitId}
+		`;
 	}
 
 	async updateDefectGrade(defectId: number, newGrade: string, updatedById: number): Promise<void> {

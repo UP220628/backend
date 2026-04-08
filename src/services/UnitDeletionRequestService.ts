@@ -4,6 +4,7 @@ import { unitDeletionRequestRepository } from '../repositories/UnitDeletionReque
 import { unitRepository } from '../repositories/UnitRepository';
 import { userRepository } from '../repositories/UserRepository';
 import { notificationService } from './NotificationService';
+import { blobStorageService } from './BlobStorageService';
 
 export class UnitDeletionRequestService {
 	private validateReason(reason: string) {
@@ -81,6 +82,19 @@ export class UnitDeletionRequestService {
 			);
 
 			return rejected;
+		}
+
+		const request = await unitDeletionRequestRepository.findById(requestId);
+		if (!request) {
+			throw new Error('Deletion request not found');
+		}
+		if (request.status !== 'PENDING') {
+			throw new Error('Request is not pending');
+		}
+
+		const photoUrls = await unitRepository.getUnitPhotoUrls(request.unitId);
+		if (photoUrls.length > 0) {
+			await blobStorageService.deleteUrls(photoUrls);
 		}
 
 		const approved = await unitDeletionRequestRepository.approveAndDeleteUnit(requestId, decidedById);

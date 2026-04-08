@@ -3,6 +3,7 @@ import { notificationService } from './NotificationService';
 import { broadcastUnitEvent, type UnitEventType } from '../realtime/unitEventStream';
 import { Unit } from '../types';
 import { ROLE_IDS } from '../constants';
+import { blobStorageService } from './BlobStorageService';
 
 export class UnitService {
 	/** Broadcast a unit event via SSE after looking up the unit */
@@ -49,6 +50,13 @@ export class UnitService {
 	}
 
 	async updateUnitStatus(id: number, newStatus: string, changedById: number, estimatedRepairHours?: number, isAvailableToday?: boolean, note?: string, wtyComment?: string) {
+		if (newStatus === 'ACCEPTED') {
+			const photoUrls = await unitRepository.getUnitPhotoUrls(id);
+			if (photoUrls.length > 0) {
+				await blobStorageService.deleteUrls(photoUrls);
+			}
+		}
+
 		await unitRepository.updateStatus(id, newStatus, changedById, estimatedRepairHours, isAvailableToday, note, wtyComment);
 		const unit = await this.emitEvent(id, 'STATUS_CHANGED');
 
@@ -118,11 +126,24 @@ export class UnitService {
 		grade: string,
 		registeredById: number,
 		description?: string,
+		photoUrls?: string[],
 		options?: { isFromWws?: boolean; overrideExisting?: boolean; wwsVersion?: string }
 	) {
-		await unitRepository.createDefect(id, defectType, zone, grade, description ?? null, registeredById, options);
+		await unitRepository.createDefect(id, defectType, zone, grade, description ?? null, registeredById, photoUrls, options);
 		await this.emitEvent(id, 'DEFECT_UPDATED');
 		return unitRepository.findByIdWithDefects(id);
+	}
+
+	async deleteDefectPhoto(unitId: number, defectId: number) {
+		const photoUrls = await unitRepository.getDefectPhotoUrls(unitId, defectId);
+		if (photoUrls.length === 0) {
+			return unitRepository.findByIdWithDefects(unitId);
+		}
+
+		await blobStorageService.deleteUrls(photoUrls);
+		await unitRepository.clearDefectPhotoUrls(unitId, defectId);
+		await this.emitEvent(unitId, 'DEFECT_UPDATED');
+		return unitRepository.findByIdWithDefects(unitId);
 	}
 
 	async updateDefectGrade(unitId: number, defectId: number, newGrade: string, updatedById: number) {

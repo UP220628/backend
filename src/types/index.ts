@@ -79,6 +79,7 @@ export interface UnitDefect {
   zone: string;
   gradeId: number;
   description?: string;
+  photoUrls?: string[];
   repairCatalogId?: number;
   registeredById: number;
   isResolved: boolean;
@@ -122,6 +123,7 @@ export interface CreateDefectDTO {
   zone: string;
   gradeId: number;
   description?: string;
+  photoUrls?: string[];
 }
 
 export interface UpdateDefectDTO {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createUnit, listUnits, updateUnitStatus, updateUnitPriority, updatePriorityOrder, addDefectToUnit, updateDefectGrade, getDefectStats, getTodayUnits, setScmDecision, getStatusStats, updateEstimatedRepairTime, getUnitsInRepair, getUnitById, archiveUnit, getArchivableUnits, decideUnitDeletionRequest, listUnitDeletionRequests, requestUnitDeletion } from '../controllers';
+import { createUnit, listUnits, updateUnitStatus, updateUnitPriority, updatePriorityOrder, addDefectToUnit, updateDefectGrade, deleteDefectPhoto, getDefectStats, getTodayUnits, setScmDecision, getStatusStats, updateEstimatedRepairTime, getUnitsInRepair, getUnitById, archiveUnit, getArchivableUnits, decideUnitDeletionRequest, listUnitDeletionRequests, requestUnitDeletion } from '../controllers';
 import { requireAnyRole, requireRole, validateOverridePermission } from '../middleware/roleGuard';
 import { requireAuth } from '../middleware/auth';
 
@@ -23,6 +23,7 @@ router.put('/:id/scm-decision', setScmDecision);
 router.put('/:id/archive', requireAuth, requireAnyRole(['ADMIN', 'SCM']), archiveUnit);
 router.post('/:id/defects', validateOverridePermission, addDefectToUnit);
 router.put('/:id/defects/:defectId', updateDefectGrade);
+router.delete('/:id/defects/:defectId/photo', requireAuth, requireAnyRole(['SCM', 'ADMIN']), deleteDefectPhoto);
 router.put('/priority/order', updatePriorityOrder);
 
 export default router;

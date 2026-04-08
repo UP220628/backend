@@ -1,4 +1,5 @@
 export * from './AuthService';
+export * from './BlobStorageService';
 export * from './NotificationService';
 export * from './ProviderService';
 export * from './StatusHistoryService';

@@ -554,7 +554,15 @@ export class UnitRepository {
 					scm.name as "scmDecidedBy",
 					defect_info."defectCode",
 					defect_info."defectSummary",
-					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount",
+					EXISTS (
+						SELECT 1
+						FROM "UnitDefect" d_photo
+						WHERE d_photo."unitId" = u.id
+							AND d_photo."isActive" = TRUE
+							AND d_photo."photoUrls" IS NOT NULL
+							AND array_length(d_photo."photoUrls", 1) > 0
+					) as "hasDefectPhotos"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
@@ -645,7 +653,15 @@ export class UnitRepository {
 					scm.name as "scmDecidedBy",
 					defect_info."defectCode",
 					defect_info."defectSummary",
-					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount"
+					COALESCE(defect_info."activeDefectCount", 0) as "activeDefectCount",
+					EXISTS (
+						SELECT 1
+						FROM "UnitDefect" d_photo
+						WHERE d_photo."unitId" = u.id
+							AND d_photo."isActive" = TRUE
+							AND d_photo."photoUrls" IS NOT NULL
+							AND array_length(d_photo."photoUrls", 1) > 0
+					) as "hasDefectPhotos"
 				FROM "Unit" u
 				JOIN "UnitStatus" s ON s.id = u."statusId"
 				LEFT JOIN "User" usr ON usr.id = u."registeredById"
